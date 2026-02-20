@@ -1513,10 +1513,9 @@
         setSyncStatus('syncing');
         const dateTasks = State.tasks.filter(t => t.date === task.date);
         task.sortOrder = dateTasks.length ? Math.max(...dateTasks.map(t => t.sortOrder || 0)) + 1 : 0;
-        const docRef = await db.collection('planner_tasks').add(task);
-        State.tasks.push({ id: docRef.id, ...task });
+        await db.collection('planner_tasks').add(task);
+        // Don't push locally - realtime sync will handle it
         setSyncStatus('synced');
-        render();
         showToast('Task added!');
       } catch (e) {
         console.error('Add error:', e);
@@ -1529,10 +1528,8 @@
       try {
         setSyncStatus('syncing');
         await db.collection('planner_tasks').doc(id).update(updates);
-        const idx = State.tasks.findIndex(t => t.id === id);
-        if (idx !== -1) State.tasks[idx] = { ...State.tasks[idx], ...updates };
+        // Don't update locally - realtime sync will handle it
         setSyncStatus('synced');
-        render();
       } catch (e) {
         console.error('Update error:', e);
         setSyncStatus('offline');
@@ -1544,9 +1541,8 @@
       try {
         setSyncStatus('syncing');
         await db.collection('planner_tasks').doc(id).delete();
-        State.tasks = State.tasks.filter(t => t.id !== id);
+        // Don't update locally - realtime sync will handle it
         setSyncStatus('synced');
-        render();
         showToast('Task deleted');
       } catch (e) {
         console.error('Delete error:', e);
