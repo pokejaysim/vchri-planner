@@ -2090,9 +2090,12 @@
     /* ───────────── Confirm Modal ───────────── */
     let confirmCallback = null;
 
-    function showConfirm(title, message, callback) {
+    function showConfirm(title, message, callback, confirmText = 'Delete', isDanger = true) {
       document.getElementById('confirm-title').textContent = title;
       document.getElementById('confirm-message').textContent = message;
+      const okBtn = document.getElementById('confirm-ok');
+      okBtn.textContent = confirmText;
+      okBtn.className = isDanger ? 'btn btn-danger' : 'btn btn-primary';
       confirmCallback = callback;
       document.getElementById('confirm-modal').classList.add('visible');
     }
@@ -2144,7 +2147,7 @@
             return;
           }
 
-          showConfirm('Import Data', 'This will add ' + data.tasks.length + ' tasks to your planner. Continue?', async () => {
+          showConfirm('Import Data', 'This will add ' + data.tasks.length + ' tasks to your planner.', async () => {
             setSyncStatus('syncing');
             for (const task of data.tasks) {
               const { id, ...taskData } = task;
@@ -2156,7 +2159,7 @@
             }
             await loadTasks();
             showToast('Import complete!');
-          });
+          }, 'Continue', false);
         } catch (err) {
           showToast('Failed to parse file');
         }
