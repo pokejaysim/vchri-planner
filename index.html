@@ -2230,6 +2230,7 @@
         }
 
         const checkbox = e.target.closest('.task-checkbox');
+        if (checkbox) {
           const task = State.tasks.find(t => t.id === checkbox.dataset.id);
           if (task) {
             const nowCompleted = !task.completed;
