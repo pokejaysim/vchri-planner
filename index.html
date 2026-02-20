@@ -1141,6 +1141,54 @@
     .group-label.home { background: rgba(16, 185, 129, 0.1); color: #10b981; }
     [data-theme="dark"] .group-label.work { color: #818cf8; }
     [data-theme="dark"] .group-label.home { color: #34d399; }
+
+    /* ── Hashtags ── */
+    .hashtag {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 8px;
+      border-radius: var(--radius-pill);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      background: rgba(139, 92, 246, 0.12);
+      color: #7c3aed;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .hashtag:hover {
+      background: rgba(139, 92, 246, 0.25);
+    }
+    [data-theme="dark"] .hashtag {
+      background: rgba(167, 139, 250, 0.15);
+      color: #a78bfa;
+    }
+    [data-theme="dark"] .hashtag:hover {
+      background: rgba(167, 139, 250, 0.3);
+    }
+
+    .active-tag-filter {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: rgba(139, 92, 246, 0.15);
+      color: #7c3aed;
+      border-radius: var(--radius-pill);
+      font-size: var(--font-size-sm);
+      font-weight: 500;
+    }
+    .active-tag-filter .clear-tag {
+      cursor: pointer;
+      font-weight: 700;
+      opacity: 0.7;
+    }
+    .active-tag-filter .clear-tag:hover {
+      opacity: 1;
+    }
+    [data-theme="dark"] .active-tag-filter {
+      background: rgba(167, 139, 250, 0.2);
+      color: #a78bfa;
+    }
   </style>
 </head>
 <body>
@@ -1215,6 +1263,7 @@
         <option value="active">Active</option>
         <option value="completed">Completed</option>
       </select>
+      <span id="active-tag-container"></span>
     </div>
 
     <!-- Task List -->
@@ -1461,11 +1510,49 @@
       filterPriority: '',
       filterCategory: '',
       filterStatus: '',
+      filterTag: '',
       editingId: null,
       carriedExpanded: true,
       workExpanded: true,
       homeExpanded: true
     };
+
+    /* ───────────── Hashtag Helpers ───────────── */
+    function extractHashtags(text) {
+      const regex = /#([a-zA-Z0-9_]+)/g;
+      const tags = [];
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        tags.push(match[1].toLowerCase());
+      }
+      return [...new Set(tags)]; // Remove duplicates
+    }
+
+    function stripHashtags(text) {
+      return text.replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
+    }
+
+    function setTagFilter(tag) {
+      State.filterTag = tag;
+      renderTagFilter();
+      render();
+    }
+
+    function clearTagFilter() {
+      State.filterTag = '';
+      renderTagFilter();
+      render();
+    }
+
+    function renderTagFilter() {
+      const container = document.getElementById('active-tag-container');
+      if (State.filterTag) {
+        container.innerHTML = '<span class="active-tag-filter">#' + escapeHtml(State.filterTag) + ' <span class="clear-tag" id="clear-tag-filter">×</span></span>';
+        document.getElementById('clear-tag-filter').addEventListener('click', clearTagFilter);
+      } else {
+        container.innerHTML = '';
+      }
+    }
 
     /* ───────────── Firebase Operations ───────────── */
     async function loadTasks() {
@@ -1662,6 +1749,10 @@
         if (State.filterCategory && t.category !== State.filterCategory) return false;
         if (State.filterStatus === 'active' && t.completed) return false;
         if (State.filterStatus === 'completed' && !t.completed) return false;
+        if (State.filterTag) {
+          const tags = extractHashtags(t.text);
+          if (!tags.includes(State.filterTag.toLowerCase())) return false;
+        }
         return true;
       });
     }
@@ -1672,6 +1763,10 @@
       const completedClass = task.completed ? ' completed' : '';
       const priorityClass = ' priority-' + task.priority;
       const carriedClass = isCarried ? ' carried' : '';
+
+      // Extract hashtags and clean text
+      const hashtags = extractHashtags(task.text);
+      const cleanText = stripHashtags(task.text);
 
       let catBadge = '';
       if (cat) {
@@ -1700,6 +1795,14 @@
         carriedBadge = '<span class="carried-badge">from ' + shortDate + '</span>';
       }
 
+      // Build hashtag badges
+      let hashtagHtml = '';
+      if (hashtags.length > 0) {
+        hashtagHtml = hashtags.map(tag => 
+          '<span class="hashtag" data-tag="' + escapeHtml(tag) + '">#' + escapeHtml(tag) + '</span>'
+        ).join('');
+      }
+
       const moveBtn = isCarried
         ? '<button class="move-today-btn" data-id="' + task.id + '" title="Move to today">➡</button>'
         : '';
@@ -1712,12 +1815,12 @@
         '</div>' +
         '<div class="task-checkbox" data-id="' + task.id + '"></div>' +
         '<div class="task-content">' +
-          '<div class="task-text">' + escapeHtml(task.text) + '</div>' +
+          '<div class="task-text">' + escapeHtml(cleanText || task.text) + '</div>' +
           '<div class="task-meta">' +
             '<span class="priority-pill ' + task.priority + '">' +
               (task.priority === 'high' ? '! ' : '') + task.priority.charAt(0).toUpperCase() + task.priority.slice(1) +
             '</span>' +
-            catBadge + timeHtml + reminderBadge + carriedBadge +
+            catBadge + hashtagHtml + timeHtml + reminderBadge + carriedBadge +
           '</div>' +
         '</div>' +
         '<div class="task-actions">' +
@@ -2119,8 +2222,14 @@
 
       // Task list delegation
       document.getElementById('task-list').addEventListener('click', async e => {
+        // Hashtag click
+        const hashtag = e.target.closest('.hashtag');
+        if (hashtag) {
+          setTagFilter(hashtag.dataset.tag);
+          return;
+        }
+
         const checkbox = e.target.closest('.task-checkbox');
-        if (checkbox) {
           const task = State.tasks.find(t => t.id === checkbox.dataset.id);
           if (task) {
             const nowCompleted = !task.completed;
