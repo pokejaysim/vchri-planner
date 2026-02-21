@@ -1372,7 +1372,8 @@
           <input type="text" id="new-cat-name" placeholder="Category name" style="flex: 1;">
           <input type="color" id="new-cat-color" value="#6366f1" style="width: 40px; height: 32px; padding: 2px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); cursor: pointer;">
           <select id="new-cat-group" style="padding: 4px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font-size: 0.8125rem;">
-            <option value="work">Work</option>
+            <option value="work">VCHRI</option>
+            <option value="pjs">PJS</option>
             <option value="home">Home</option>
           </select>
           <button class="btn btn-primary" id="btn-add-cat" style="padding: 6px 12px;">Add</button>
@@ -1458,9 +1459,15 @@
     }
 
     function getCategoryGroup(catId) {
+      // First check by ID directly
+      if (catId && catId.toLowerCase && catId.toLowerCase().includes('pjs')) return 'pjs';
+      if (catId && catId.toLowerCase && catId.toLowerCase().includes('home')) return 'home';
+      
       const cat = State.categories.find(c => c.id === catId);
       if (!cat) return 'work';
-      // Check by group property first
+      // Check by group property
+      if (cat.group === 'pjs') return 'pjs';
+      if (cat.group === 'home') return 'home';
       if (cat.group) return cat.group;
       // Fallback: check by name for PJS detection
       if (cat.name && cat.name.toLowerCase().includes('pjs')) return 'pjs';
