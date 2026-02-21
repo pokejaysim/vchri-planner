@@ -1379,7 +1379,8 @@
           <button class="btn btn-primary" id="btn-add-cat" style="padding: 6px 12px;">Add</button>
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button class="btn btn-danger" id="categories-reset" style="font-size: 0.75rem;">Reset to Defaults</button>
         <button class="btn btn-secondary" id="categories-done">Done</button>
       </div>
     </div>
@@ -2371,6 +2372,29 @@
       document.getElementById('categories-close').addEventListener('click', closeCategoriesModal);
       document.getElementById('categories-done').addEventListener('click', closeCategoriesModal);
       document.getElementById('categories-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeCategoriesModal(); });
+      
+      document.getElementById('categories-reset').addEventListener('click', async () => {
+        showConfirm('Reset Categories', 'This will delete all your custom categories and restore the defaults (VCHRI, Meetings, PJS Collectibles, Home). Your tasks will keep their category IDs but may need to be reassigned. Continue?', async () => {
+          try {
+            setSyncStatus('syncing');
+            // Delete all existing categories from Firebase
+            const snapshot = await db.collection('planner_categories').get();
+            const batch = db.batch();
+            snapshot.docs.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            // Reset to defaults
+            State.categories = [...DEFAULT_CATEGORIES];
+            await saveCategories();
+            renderCategoryList();
+            refreshCategoryDropdowns();
+            showToast('Categories reset to defaults!');
+          } catch (e) {
+            console.error('Reset categories error:', e);
+            showToast('Failed to reset categories');
+            setSyncStatus('offline');
+          }
+        }, 'Reset', true);
+      });
 
       document.getElementById('btn-add-cat').addEventListener('click', async () => {
         const icon = document.getElementById('new-cat-icon').value || '📌';
