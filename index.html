@@ -1670,13 +1670,21 @@
     function refreshCategoryDropdowns() {
       const cats = State.categories;
       const workCats = cats.filter(c => (c.group || 'work') === 'work');
+      const pjsCats = cats.filter(c => c.group === 'pjs');
       const homeCats = cats.filter(c => c.group === 'home');
 
       const buildOptions = (includeAll) => {
         let html = includeAll ? '<option value="">All Categories</option>' : '';
         if (workCats.length) {
-          html += '<optgroup label="Work">';
+          html += '<optgroup label="VCHRI">';
           workCats.forEach(c => {
+            html += '<option value="' + escapeHtml(c.id) + '">' + c.icon + ' ' + escapeHtml(c.name) + '</option>';
+          });
+          html += '</optgroup>';
+        }
+        if (pjsCats.length) {
+          html += '<optgroup label="PJS Collectibles">';
+          pjsCats.forEach(c => {
             html += '<option value="' + escapeHtml(c.id) + '">' + c.icon + ' ' + escapeHtml(c.name) + '</option>';
           });
           html += '</optgroup>';
