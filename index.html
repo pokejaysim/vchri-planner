@@ -1459,7 +1459,13 @@
 
     function getCategoryGroup(catId) {
       const cat = State.categories.find(c => c.id === catId);
-      return cat ? (cat.group || 'work') : 'work';
+      if (!cat) return 'work';
+      // Check by group property first
+      if (cat.group) return cat.group;
+      // Fallback: check by name for PJS detection
+      if (cat.name && cat.name.toLowerCase().includes('pjs')) return 'pjs';
+      if (cat.name && cat.name.toLowerCase().includes('home')) return 'home';
+      return 'work';
     }
 
     /* ───────────── Toast ───────────── */
