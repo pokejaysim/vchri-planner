@@ -359,6 +359,110 @@
 
     .progress-celebration.visible { display: block; }
 
+    /* ── Planner Toolbar ── */
+    .planner-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-md);
+      padding: 14px 16px;
+      background: var(--color-surface);
+      border: 1px solid rgba(99, 102, 241, 0.1);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .toolbar-section {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      flex-wrap: wrap;
+    }
+
+    .toolbar-label,
+    .shortcut-hint {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+    }
+
+    .segmented-control {
+      display: inline-flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .segment-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-pill);
+      background: var(--color-surface);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .segment-btn:hover {
+      border-color: rgba(99, 102, 241, 0.25);
+      color: var(--color-primary);
+    }
+    .segment-btn.active {
+      background: var(--color-primary-light);
+      border-color: rgba(99, 102, 241, 0.28);
+      color: var(--color-primary);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.08);
+    }
+
+    .segment-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      padding: 1px 7px;
+      border-radius: var(--radius-pill);
+      background: rgba(99, 102, 241, 0.08);
+      color: inherit;
+      font-size: 0.6875rem;
+      font-weight: 700;
+    }
+
+    .toolbar-select {
+      padding: 9px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-pill);
+      font-family: var(--font-family);
+      font-size: var(--font-size-sm);
+      color: var(--color-text);
+      background: var(--color-surface);
+      cursor: pointer;
+      outline: none;
+    }
+    .toolbar-select:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-glow);
+    }
+
+    .shortcut-hint kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      padding: 2px 6px;
+      margin: 0 2px;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-size: 0.6875rem;
+      font-family: var(--font-family);
+      font-weight: 700;
+    }
+
     /* ── Quick Add ── */
     .quick-add {
       display: flex;
@@ -454,6 +558,54 @@
       gap: var(--space-sm);
     }
 
+    .top-priorities-section {
+      margin-bottom: var(--space-md);
+      background: var(--color-surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      border-left: 4px solid #f59e0b;
+      overflow: hidden;
+    }
+
+    .top-priorities-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-md) var(--space-lg);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: rgba(245, 158, 11, 0.08);
+    }
+
+    .top-priorities-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      background: rgba(245, 158, 11, 0.16);
+      color: #b45309;
+      font-size: 0.6875rem;
+      font-weight: 800;
+    }
+    [data-theme="dark"] .top-priorities-header {
+      background: rgba(245, 158, 11, 0.12);
+    }
+    [data-theme="dark"] .top-priorities-count {
+      color: #fbbf24;
+    }
+
+    .top-priorities-body {
+      padding: 0 var(--space-md) var(--space-md);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
     /* ── Task Card ── */
     .task-card {
       display: flex;
@@ -509,6 +661,9 @@
     }
 
     .task-card.completed .task-meta { opacity: 0.5; }
+    .task-card.pinned {
+      box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.18), var(--shadow-sm);
+    }
 
     /* Drag handle */
     .drag-handle {
@@ -554,6 +709,14 @@
       color: #fff;
       font-size: 12px;
       font-weight: 700;
+    }
+
+    .task-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-md);
     }
 
     @keyframes check-fill {
@@ -764,6 +927,36 @@
       flex-wrap: wrap;
     }
 
+    .pin-badge,
+    .recurring-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 9px;
+      border-radius: var(--radius-pill);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .pin-badge {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.2);
+      color: #b45309;
+    }
+    [data-theme="dark"] .pin-badge {
+      color: #fbbf24;
+    }
+
+    .recurring-badge {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.2);
+      color: #047857;
+    }
+    [data-theme="dark"] .recurring-badge {
+      color: #6ee7b7;
+    }
+
     /* Priority pill */
     .priority-pill {
       display: inline-flex;
@@ -813,6 +1006,8 @@
     }
     .task-action-btn:hover { background: var(--color-primary-light); color: var(--color-primary); }
     .task-action-btn.delete:hover { background: #fee2e2; color: var(--color-danger); }
+    .task-action-btn.pin.active { color: #d97706; }
+    .task-action-btn.pin:hover { background: rgba(245, 158, 11, 0.12); color: #d97706; }
 
     /* Mobile reorder buttons */
     .reorder-buttons { display: none; }
@@ -1046,6 +1241,12 @@
 
     /* ── Responsive ── */
     @media (max-width: 768px) {
+      .planner-toolbar {
+        align-items: stretch;
+      }
+      .toolbar-section {
+        width: 100%;
+      }
       .quick-add { flex-wrap: wrap; }
       .quick-add-input { width: 100%; min-width: unset; }
       .filter-bar {
@@ -1059,6 +1260,9 @@
         gap: 12px;
         padding: 16px;
       }
+      .task-main {
+        gap: 12px;
+      }
       .task-note-controls { gap: 6px; }
       .task-note-toggle,
       .task-note-btn { justify-content: center; }
@@ -1069,6 +1273,19 @@
     @media (max-width: 480px) {
       .app-container { padding: var(--space-md); }
       .app-header { flex-direction: column; align-items: flex-start; }
+      .planner-toolbar {
+        padding: 12px;
+      }
+      .segmented-control {
+        width: 100%;
+      }
+      .segment-btn {
+        flex: 1 1 calc(50% - 6px);
+        justify-content: space-between;
+      }
+      .toolbar-select {
+        width: 100%;
+      }
       .quick-add { gap: 10px; }
       .quick-add select,
       .quick-add input[type="time"],
@@ -1079,6 +1296,9 @@
       }
       .task-card {
         padding: 14px;
+        gap: 10px;
+      }
+      .task-main {
         gap: 10px;
       }
       .task-text { font-size: 0.975rem; }
@@ -1121,6 +1341,9 @@
       }
       .reorder-btn:hover { background: var(--color-primary-light); color: var(--color-primary); }
       .progress-stats { flex-wrap: wrap; }
+      .shortcut-hint {
+        width: 100%;
+      }
     }
 
     /* Hidden file input for import */
@@ -1372,6 +1595,31 @@
     .group-label.work { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
     [data-theme="dark"] .group-label.work { color: #818cf8; }
 
+    .task-list.compact-mode {
+      gap: 6px;
+    }
+    .task-list.compact-mode .task-card {
+      padding: 13px 16px;
+    }
+    .task-list.compact-mode .task-main {
+      gap: 12px;
+    }
+    .task-list.compact-mode .task-content {
+      gap: 8px;
+    }
+    .task-list.compact-mode .task-text {
+      font-size: 0.9375rem;
+      line-height: 1.3;
+    }
+    .task-list.compact-mode .task-meta {
+      gap: 6px;
+    }
+    .task-list.compact-mode .task-note-toggle,
+    .task-list.compact-mode .task-note-btn {
+      padding: 4px 10px;
+      font-size: 0.75rem;
+    }
+
     /* ── Hashtags ── */
     .hashtag {
       display: inline-flex;
@@ -1462,6 +1710,33 @@
       <div class="progress-celebration" id="celebration">All tasks done! Great work today!</div>
     </section>
 
+    <div class="planner-toolbar">
+      <div class="toolbar-section">
+        <span class="toolbar-label">View</span>
+        <div class="segmented-control" id="view-toggle">
+          <button class="segment-btn" type="button" data-view="today">Today <span class="segment-count" id="count-today">0</span></button>
+          <button class="segment-btn" type="button" data-view="upcoming">Upcoming <span class="segment-count" id="count-upcoming">0</span></button>
+          <button class="segment-btn" type="button" data-view="overdue">Overdue <span class="segment-count" id="count-overdue">0</span></button>
+          <button class="segment-btn" type="button" data-view="done">Done <span class="segment-count" id="count-done">0</span></button>
+        </div>
+      </div>
+      <div class="toolbar-section">
+        <span class="toolbar-label">Sort</span>
+        <select class="toolbar-select" id="sort-mode">
+          <option value="manual">Manual order</option>
+          <option value="recent">Recently edited</option>
+        </select>
+        <span class="toolbar-label">Density</span>
+        <div class="segmented-control" id="density-toggle">
+          <button class="segment-btn" type="button" data-density="expanded">Expanded</button>
+          <button class="segment-btn" type="button" data-density="compact">Compact</button>
+        </div>
+      </div>
+      <div class="toolbar-section">
+        <span class="shortcut-hint">Shortcuts: <kbd>n</kbd> new task <kbd>/</kbd> search <kbd>Esc</kbd> close</span>
+      </div>
+    </div>
+
     <!-- Quick Add -->
     <div class="quick-add">
       <input type="text" class="quick-add-input" id="add-text" placeholder="What's on the agenda today?" autocomplete="off">
@@ -1528,10 +1803,26 @@
               <option value="low">Low</option>
             </select>
           </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-recurrence">Repeats</label>
+            <select class="form-select" id="edit-recurrence">
+              <option value="none">Does not repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekdays">Weekdays</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label" for="edit-time">Due Time</label>
           <input type="time" class="form-input" id="edit-time">
+        </div>
+        <div class="form-group">
+          <label class="reminder-toggle-row" for="edit-pinned">
+            <input type="checkbox" id="edit-pinned">
+            <span class="reminder-toggle-label">&#11088; Keep in Top priorities</span>
+          </label>
         </div>
         <div class="form-group">
           <label class="form-label" for="edit-notes">Notes</label>
@@ -1610,6 +1901,12 @@
     const REMINDER_POLL_INTERVAL_MS = 30000;
 
     const DEFAULT_CATEGORY_ID = 'vchri';
+    const RECURRENCE_LABELS = {
+      daily: 'Daily',
+      weekdays: 'Weekdays',
+      weekly: 'Weekly',
+      monthly: 'Monthly'
+    };
 
     /* ───────────── Helpers ───────────── */
     function getTodayString() {
@@ -1651,6 +1948,69 @@
       const div = document.createElement('div');
       div.textContent = str || '';
       return div.innerHTML;
+    }
+
+    function getCurrentTimestamp() {
+      return new Date().toISOString();
+    }
+
+    function parseDateOnly(dateStr) {
+      return new Date(dateStr + 'T12:00:00');
+    }
+
+    function toDateString(date) {
+      return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+    }
+
+    function addDays(dateStr, days) {
+      const date = parseDateOnly(dateStr);
+      date.setDate(date.getDate() + days);
+      return toDateString(date);
+    }
+
+    function addMonths(dateStr, months) {
+      const date = parseDateOnly(dateStr);
+      const day = date.getDate();
+      date.setDate(1);
+      date.setMonth(date.getMonth() + months);
+      const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+      date.setDate(Math.min(day, lastDay));
+      return toDateString(date);
+    }
+
+    function getNextRecurringDate(dateStr, recurrence) {
+      if (recurrence === 'daily') return addDays(dateStr, 1);
+      if (recurrence === 'weekly') return addDays(dateStr, 7);
+      if (recurrence === 'monthly') return addMonths(dateStr, 1);
+      if (recurrence === 'weekdays') {
+        let next = addDays(dateStr, 1);
+        let day = parseDateOnly(next).getDay();
+        while (day === 0 || day === 6) {
+          next = addDays(next, 1);
+          day = parseDateOnly(next).getDay();
+        }
+        return next;
+      }
+      return null;
+    }
+
+    function getDateTimeValue(task, fallbackHour = 23) {
+      const date = parseDateOnly(task.date);
+      if (task.dueTime) {
+        const [hours, minutes] = task.dueTime.split(':').map(Number);
+        date.setHours(hours, minutes, 0, 0);
+      } else {
+        date.setHours(fallbackHour, 59, 0, 0);
+      }
+      return date.getTime();
+    }
+
+    function getLastUpdatedValue(task) {
+      return new Date(task.updatedAt || task.createdAt || 0).getTime() || 0;
+    }
+
+    function isTaskOverdueForView(task) {
+      return !task.completed && (task.date < State.selectedDate || (task.date === State.selectedDate && isOverdue(task)));
     }
 
     function getReminderDateTime(task) {
@@ -1719,7 +2079,12 @@
     function normalizeTask(task) {
       return {
         ...task,
-        category: DEFAULT_CATEGORY_ID
+        category: DEFAULT_CATEGORY_ID,
+        pinned: !!task.pinned,
+        recurrence: task.recurrence || 'none',
+        recurringSourceId: task.recurringSourceId || null,
+        createdAt: task.createdAt || null,
+        updatedAt: task.updatedAt || task.createdAt || null
       };
     }
 
@@ -1831,6 +2196,9 @@
     const State = {
       selectedDate: getTodayString(),
       tasks: [],
+      viewMode: 'today',
+      sortMode: 'manual',
+      densityMode: 'expanded',
       searchQuery: '',
       filterPriority: '',
       filterStatus: '',
@@ -1886,7 +2254,10 @@
       try {
         setSyncStatus('syncing');
         const dateTasks = State.tasks.filter(t => t.date === task.date);
+        const timestamp = getCurrentTimestamp();
         task.sortOrder = dateTasks.length ? Math.max(...dateTasks.map(t => t.sortOrder || 0)) + 1 : 0;
+        task.createdAt = task.createdAt || timestamp;
+        task.updatedAt = timestamp;
         await db.collection('planner_tasks').add(task);
         // Don't push locally - realtime sync will handle it
         setSyncStatus('synced');
@@ -1901,7 +2272,10 @@
     async function updateTask(id, updates) {
       try {
         setSyncStatus('syncing');
-        await db.collection('planner_tasks').doc(id).update(updates);
+        await db.collection('planner_tasks').doc(id).update({
+          ...updates,
+          updatedAt: getCurrentTimestamp()
+        });
         // Don't update locally - realtime sync will handle it
         setSyncStatus('synced');
       } catch (e) {
@@ -1922,6 +2296,43 @@
         console.error('Delete error:', e);
         setSyncStatus('offline');
         showToast('Failed to delete task');
+      }
+    }
+
+    async function ensureRecurringTask(task) {
+      if (!task || !task.recurrence || task.recurrence === 'none') return false;
+      const nextDate = getNextRecurringDate(task.date, task.recurrence);
+      if (!nextDate) return false;
+
+      const sourceId = task.recurringSourceId || task.id;
+      try {
+        const existing = await db.collection('planner_tasks')
+          .where('recurringSourceId', '==', sourceId)
+          .where('date', '==', nextDate)
+          .get();
+        if (!existing.empty) return false;
+
+        await addTask({
+          text: task.text,
+          priority: task.priority,
+          category: DEFAULT_CATEGORY_ID,
+          dueTime: task.dueTime || null,
+          date: nextDate,
+          completed: false,
+          notes: task.notes || '',
+          reminderDate: null,
+          reminderTime: null,
+          reminderFired: false,
+          pinned: !!task.pinned,
+          recurrence: task.recurrence,
+          recurringSourceId: sourceId
+        });
+        showToast('Next recurring task added');
+        return true;
+      } catch (e) {
+        console.error('Recurring task error:', e);
+        showToast('Failed to create next recurring task');
+        return false;
       }
     }
 
@@ -2005,18 +2416,14 @@
     /* ───────────── Rendering ───────────── */
     function render() {
       renderDateNav();
-      
-      const todayTasks = State.tasks.filter(t => t.date === State.selectedDate);
-      const carriedOver = State.selectedDate >= getTodayString()
-        ? State.tasks.filter(t => t.date < State.selectedDate && !t.completed)
-        : [];
+      renderToolbarState();
 
-      const allForProgress = todayTasks.concat(carriedOver);
-      const filteredToday = filterTasks(todayTasks);
-      const filteredCarried = filterTasks(carriedOver);
+      const viewData = getTasksForActiveView();
+      const filteredPrimary = filterTasks(viewData.primaryTasks);
+      const filteredSecondary = filterTasks(viewData.secondaryTasks);
 
-      renderProgress(allForProgress);
-      renderTaskList(filteredToday, filteredCarried);
+      renderProgress(viewData.progressTasks, viewData.viewMode);
+      renderTaskList(filteredPrimary, filteredSecondary, viewData);
     }
 
     function renderDateNav() {
@@ -2025,15 +2432,102 @@
       document.getElementById('date-today').classList.toggle('hidden', isToday);
     }
 
-    function renderProgress(tasks) {
+    function renderToolbarState() {
+      const counts = {
+        today: getTasksForView('today').progressTasks.length,
+        upcoming: getTasksForView('upcoming').primaryTasks.length,
+        overdue: getTasksForView('overdue').primaryTasks.length,
+        done: getTasksForView('done').primaryTasks.length
+      };
+
+      document.querySelectorAll('#view-toggle [data-view]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === State.viewMode);
+      });
+      document.querySelectorAll('#density-toggle [data-density]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.density === State.densityMode);
+      });
+
+      document.getElementById('count-today').textContent = counts.today;
+      document.getElementById('count-upcoming').textContent = counts.upcoming;
+      document.getElementById('count-overdue').textContent = counts.overdue;
+      document.getElementById('count-done').textContent = counts.done;
+      document.getElementById('sort-mode').value = State.sortMode;
+    }
+
+    function getTasksForView(viewMode) {
+      const selectedDayTasks = State.tasks.filter(t => t.date === State.selectedDate);
+      const carriedOver = State.selectedDate >= getTodayString()
+        ? State.tasks.filter(t => t.date < State.selectedDate && !t.completed)
+        : [];
+
+      if (viewMode === 'upcoming') {
+        const upcomingTasks = State.tasks.filter(t => !t.completed && t.date > State.selectedDate);
+        return {
+          viewMode,
+          primaryTasks: upcomingTasks,
+          secondaryTasks: [],
+          progressTasks: upcomingTasks,
+          emptyTitle: 'Nothing upcoming',
+          emptyText: 'Future tasks will show up here so you can plan ahead.'
+        };
+      }
+
+      if (viewMode === 'overdue') {
+        const overdueTasks = State.tasks.filter(isTaskOverdueForView);
+        return {
+          viewMode,
+          primaryTasks: overdueTasks,
+          secondaryTasks: [],
+          progressTasks: overdueTasks,
+          emptyTitle: 'No overdue tasks',
+          emptyText: 'You are caught up right now.'
+        };
+      }
+
+      if (viewMode === 'done') {
+        const doneTasks = State.tasks.filter(t => t.completed);
+        return {
+          viewMode,
+          primaryTasks: doneTasks,
+          secondaryTasks: [],
+          progressTasks: doneTasks,
+          emptyTitle: 'No completed tasks yet',
+          emptyText: 'Finished work will show up here for quick review.'
+        };
+      }
+
+      return {
+        viewMode: 'today',
+        primaryTasks: selectedDayTasks,
+        secondaryTasks: carriedOver,
+        progressTasks: selectedDayTasks.concat(carriedOver),
+        emptyTitle: 'No tasks yet',
+        emptyText: 'Start planning your day by adding a task above!'
+      };
+    }
+
+    function getTasksForActiveView() {
+      return getTasksForView(State.viewMode);
+    }
+
+    function renderProgress(tasks, viewMode) {
       document.getElementById('greeting').textContent = getGreeting();
       const total = tasks.length;
       const done = tasks.filter(t => t.completed).length;
-      const pct = total ? Math.round((done / total) * 100) : 0;
+      const pct = viewMode === 'done' ? (total ? 100 : 0) : (total ? Math.round((done / total) * 100) : 0);
 
-      document.getElementById('progress-text').textContent = total
-        ? done + ' of ' + total + ' tasks completed (' + pct + '%)'
-        : 'No tasks for this day yet. Add one above!';
+      let progressText = 'No tasks for this day yet. Add one above!';
+      if (viewMode === 'upcoming') {
+        progressText = total ? total + ' upcoming tasks on deck' : 'No upcoming tasks right now.';
+      } else if (viewMode === 'overdue') {
+        progressText = total ? total + ' overdue tasks need attention' : 'Nothing overdue right now.';
+      } else if (viewMode === 'done') {
+        progressText = total ? total + ' completed tasks in your archive' : 'No completed tasks yet.';
+      } else if (total) {
+        progressText = done + ' of ' + total + ' tasks completed (' + pct + '%)';
+      }
+
+      document.getElementById('progress-text').textContent = progressText;
 
       document.getElementById('progress-fill').style.width = pct + '%';
 
@@ -2046,7 +2540,7 @@
         '<span class="progress-stat"><span class="progress-stat-dot" style="background:var(--priority-medium-border)"></span>' + med + ' Medium</span>' +
         '<span class="progress-stat"><span class="progress-stat-dot" style="background:var(--priority-low-border)"></span>' + low + ' Low</span>';
 
-      document.getElementById('celebration').classList.toggle('visible', total > 0 && done === total);
+      document.getElementById('celebration').classList.toggle('visible', viewMode === 'today' && total > 0 && done === total);
     }
 
     function filterTasks(tasks) {
@@ -2069,11 +2563,36 @@
       });
     }
 
+    function sortTasksForDisplay(tasks) {
+      const sorted = [...tasks];
+      if (State.sortMode === 'recent') {
+        sorted.sort((a, b) => {
+          const diff = getLastUpdatedValue(b) - getLastUpdatedValue(a);
+          if (diff !== 0) return diff;
+          return getDateTimeValue(a) - getDateTimeValue(b);
+        });
+        return sorted;
+      }
+
+      sorted.sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        if (State.viewMode === 'upcoming' || State.viewMode === 'overdue' || State.viewMode === 'done') {
+          const byDate = getDateTimeValue(a) - getDateTimeValue(b);
+          if (byDate !== 0) return byDate;
+        }
+        return (a.sortOrder || 0) - (b.sortOrder || 0);
+      });
+      return sorted;
+    }
+
     function buildTaskCardHtml(task, isCarried) {
       const overdueClass = isOverdue(task) ? ' overdue' : '';
       const completedClass = task.completed ? ' completed' : '';
       const priorityClass = ' priority-' + task.priority;
       const carriedClass = isCarried ? ' carried' : '';
+      const pinnedClass = task.pinned ? ' pinned' : '';
+      const isCompact = State.densityMode === 'compact';
+      const allowManualReorder = State.sortMode === 'manual' && State.viewMode === 'today' && !isCarried && !task.pinned;
 
       // Extract hashtags and clean text
       const hashtags = extractHashtags(task.text);
@@ -2105,6 +2624,16 @@
         carriedBadge = '<span class="carried-badge">from ' + shortDate + '</span>';
       }
 
+      let pinnedBadge = '';
+      if (task.pinned && !task.completed) {
+        pinnedBadge = '<span class="pin-badge">★ Top priority</span>';
+      }
+
+      let recurringBadge = '';
+      if (task.recurrence && task.recurrence !== 'none') {
+        recurringBadge = '<span class="recurring-badge">↻ ' + escapeHtml(RECURRENCE_LABELS[task.recurrence] || task.recurrence) + '</span>';
+      }
+
       // Build hashtag badges
       let hashtagHtml = '';
       if (hashtags.length > 0) {
@@ -2132,11 +2661,15 @@
             '<button class="task-note-toggle" type="button" data-id="' + task.id + '" aria-expanded="true">Hide notes</button>' +
             '<button class="task-note-btn" type="button" data-id="' + task.id + '" data-note-action="edit">Edit note</button>' +
             '<button class="task-note-btn subtle task-note-copy" type="button" data-id="' + task.id + '">Copy note</button>';
-        } else {
+        } else if (!isCompact) {
           notePreviewHtml = '<div class="task-note-preview">' + escapeHtml(getNotePreview(noteText)) + '</div>';
           noteControlsHtml =
             '<button class="task-note-toggle" type="button" data-id="' + task.id + '" aria-expanded="false">Show notes</button>' +
             '<button class="task-note-btn subtle" type="button" data-id="' + task.id + '" data-note-action="edit">Edit note</button>';
+        } else {
+          noteControlsHtml =
+            '<button class="task-note-toggle" type="button" data-id="' + task.id + '" aria-expanded="false">Notes</button>' +
+            '<button class="task-note-btn subtle" type="button" data-id="' + task.id + '" data-note-action="edit">Edit</button>';
         }
       } else {
         noteControlsHtml = '<button class="task-note-btn subtle" type="button" data-id="' + task.id + '" data-note-action="edit">Add note</button>';
@@ -2146,39 +2679,38 @@
         ? '<button class="move-today-btn" type="button" data-id="' + task.id + '" title="Move to today" aria-label="Move task to today">➡</button>'
         : '';
 
-      return '<div class="task-card' + priorityClass + completedClass + carriedClass + '" data-task-id="' + task.id + '" draggable="true">' +
-        '<span class="drag-handle" title="Drag to reorder">☰</span>' +
-        '<div class="reorder-buttons">' +
+      return '<div class="task-card' + priorityClass + completedClass + carriedClass + pinnedClass + '" data-task-id="' + task.id + '" draggable="' + allowManualReorder + '">' +
+        (allowManualReorder ? '<span class="drag-handle" title="Drag to reorder">☰</span>' : '') +
+        (allowManualReorder ? '<div class="reorder-buttons">' +
           '<button class="reorder-btn" type="button" data-dir="up" data-id="' + task.id + '" aria-label="Move task up">▲</button>' +
           '<button class="reorder-btn" type="button" data-dir="down" data-id="' + task.id + '" aria-label="Move task down">▼</button>' +
-        '</div>' +
-        '<button class="task-checkbox" type="button" data-id="' + task.id + '" aria-pressed="' + task.completed + '" aria-label="' + (task.completed ? 'Mark task incomplete' : 'Mark task complete') + '"></button>' +
-        '<div class="task-content">' +
-          '<div class="task-text">' + escapeHtml(cleanText || task.text) + '</div>' +
-          '<div class="task-meta">' +
-            '<span class="priority-pill ' + task.priority + '">' +
-              (task.priority === 'high' ? '! ' : '') + task.priority.charAt(0).toUpperCase() + task.priority.slice(1) +
-            '</span>' +
-            noteBadge + hashtagHtml + timeHtml + reminderBadge + carriedBadge +
+        '</div>' : '') +
+        '<div class="task-main">' +
+          '<button class="task-checkbox" type="button" data-id="' + task.id + '" aria-pressed="' + task.completed + '" aria-label="' + (task.completed ? 'Mark task incomplete' : 'Mark task complete') + '"></button>' +
+          '<div class="task-content">' +
+            '<div class="task-text">' + escapeHtml(cleanText || task.text) + '</div>' +
+            '<div class="task-meta">' +
+              '<span class="priority-pill ' + task.priority + '">' +
+                (task.priority === 'high' ? '! ' : '') + task.priority.charAt(0).toUpperCase() + task.priority.slice(1) +
+              '</span>' +
+              pinnedBadge + recurringBadge + noteBadge + hashtagHtml + timeHtml + reminderBadge + carriedBadge +
+            '</div>' +
+            notePreviewHtml +
+            noteFullHtml +
+            '<div class="task-note-controls">' + noteControlsHtml + '</div>' +
           '</div>' +
-          notePreviewHtml +
-          noteFullHtml +
-          '<div class="task-note-controls">' + noteControlsHtml + '</div>' +
-        '</div>' +
-        '<div class="task-actions">' +
-          moveBtn +
-          '<button class="task-action-btn edit" type="button" data-id="' + task.id + '" title="Edit" aria-label="Edit task">✎</button>' +
-          '<button class="task-action-btn delete" type="button" data-id="' + task.id + '" title="Delete" aria-label="Delete task">✖</button>' +
+          '<div class="task-actions">' +
+            moveBtn +
+            '<button class="task-action-btn pin' + (task.pinned ? ' active' : '') + '" type="button" data-id="' + task.id + '" title="' + (task.pinned ? 'Remove from Top priorities' : 'Add to Top priorities') + '" aria-label="' + (task.pinned ? 'Remove from Top priorities' : 'Add to Top priorities') + '">★</button>' +
+            '<button class="task-action-btn edit" type="button" data-id="' + task.id + '" title="Edit" aria-label="Edit task">✎</button>' +
+            '<button class="task-action-btn delete" type="button" data-id="' + task.id + '" title="Delete" aria-label="Delete task">✖</button>' +
+          '</div>' +
         '</div>' +
       '</div>';
     }
 
     function renderGroupedTasks(tasks, isCarried) {
       const workTasks = tasks;
-      const sortFn = (a, b) => {
-        if (a.completed !== b.completed) return a.completed ? 1 : -1;
-        return (a.sortOrder || 0) - (b.sortOrder || 0);
-      };
       const suffix = isCarried ? '-carried' : '';
       let html = '';
 
@@ -2191,7 +2723,7 @@
             '🏥 VCHRI <span class="group-header-count">' + workTasks.length + '</span>' +
           '</button>' +
           '<div class="group-body' + workBody + '" data-group-body="work' + suffix + '">' +
-            [...workTasks].sort(sortFn).map(t => buildTaskCardHtml(t, isCarried)).join('') +
+            sortTasksForDisplay(workTasks).map(t => buildTaskCardHtml(t, isCarried)).join('') +
           '</div>' +
           '</div>';
       }
@@ -2199,13 +2731,23 @@
       return html;
     }
 
-    function renderTaskList(todayTasks, carriedTasks) {
+    function renderTaskList(todayTasks, carriedTasks, viewData) {
       carriedTasks = carriedTasks || [];
       const taskList = document.getElementById('task-list');
       const emptyState = document.getElementById('empty-state');
+      const activePinned = State.viewMode !== 'done'
+        ? todayTasks.concat(carriedTasks).filter(t => t.pinned && !t.completed)
+        : [];
+      const pinnedIds = new Set(activePinned.map(t => t.id));
+      const todayWithoutPinned = todayTasks.filter(t => !pinnedIds.has(t.id));
+      const carriedWithoutPinned = carriedTasks.filter(t => !pinnedIds.has(t.id));
+
+      taskList.className = 'task-list' + (State.densityMode === 'compact' ? ' compact-mode' : '');
 
       if (todayTasks.length === 0 && carriedTasks.length === 0) {
         taskList.innerHTML = '';
+        document.getElementById('empty-state').querySelector('.empty-state-title').textContent = viewData.emptyTitle;
+        document.getElementById('empty-state').querySelector('.empty-state-text').textContent = viewData.emptyText;
         emptyState.style.display = 'block';
         return;
       }
@@ -2214,8 +2756,15 @@
 
       let html = '';
 
+      if (activePinned.length) {
+        html += '<div class="top-priorities-section">' +
+          '<div class="top-priorities-header">Top priorities <span class="top-priorities-count">' + activePinned.length + '</span></div>' +
+          '<div class="top-priorities-body">' + sortTasksForDisplay(activePinned).map(t => buildTaskCardHtml(t, t.date < State.selectedDate && !t.completed)).join('') + '</div>' +
+          '</div>';
+      }
+
       // Carried-over section
-      if (carriedTasks.length > 0) {
+      if (carriedWithoutPinned.length > 0) {
         const arrowClass = State.carriedExpanded ? ' expanded' : '';
         const bodyClass = State.carriedExpanded ? '' : ' collapsed';
 
@@ -2223,16 +2772,15 @@
           '<button class="carried-header" id="carried-header" type="button" aria-expanded="' + State.carriedExpanded + '">' +
             '<span class="carried-header-arrow' + arrowClass + '">▶</span>' +
             'Carried Over ' +
-            '<span class="carried-header-count">' + carriedTasks.length + '</span>' +
+            '<span class="carried-header-count">' + carriedWithoutPinned.length + '</span>' +
           '</button>' +
           '<div class="carried-body' + bodyClass + '" id="carried-body">' +
-            renderGroupedTasks(carriedTasks, true) +
+            renderGroupedTasks(carriedWithoutPinned, true) +
           '</div>' +
         '</div>';
       }
 
-      // Today's tasks — grouped by Work / Home
-      html += renderGroupedTasks(todayTasks, false);
+      html += renderGroupedTasks(todayWithoutPinned, false);
 
       taskList.innerHTML = html;
 
@@ -2268,7 +2816,7 @@
       });
 
       // Attach drag events
-      taskList.querySelectorAll('.task-card').forEach(card => {
+      taskList.querySelectorAll('.task-card[draggable="true"]').forEach(card => {
         const id = card.dataset.taskId;
         card.addEventListener('dragstart', e => handleDragStart(e, id));
         card.addEventListener('dragover', e => handleDragOver(e));
@@ -2381,7 +2929,9 @@
       document.getElementById('edit-modal-title').textContent = 'Edit Task';
       document.getElementById('edit-text').value = task.text;
       document.getElementById('edit-priority').value = task.priority;
+      document.getElementById('edit-recurrence').value = task.recurrence || 'none';
       document.getElementById('edit-time').value = task.dueTime || '';
+      document.getElementById('edit-pinned').checked = !!task.pinned;
       document.getElementById('edit-notes').value = task.notes || '';
 
       const hasReminder = !!(task.reminderDate && task.reminderTime);
@@ -2423,6 +2973,8 @@
       await updateTask(State.editingId, {
         text,
         priority: document.getElementById('edit-priority').value,
+        recurrence: document.getElementById('edit-recurrence').value,
+        pinned: document.getElementById('edit-pinned').checked,
         category: DEFAULT_CATEGORY_ID,
         dueTime: document.getElementById('edit-time').value || null,
         notes: document.getElementById('edit-notes').value,
@@ -2500,6 +3052,22 @@
       reader.readAsText(file);
     }
 
+    function setViewMode(mode) {
+      State.viewMode = mode;
+      if (mode === 'done') {
+        State.filterStatus = 'completed';
+      } else if (State.filterStatus === 'completed') {
+        State.filterStatus = '';
+      }
+      document.getElementById('filter-status').value = State.filterStatus;
+      render();
+    }
+
+    function setDensityMode(mode) {
+      State.densityMode = mode;
+      render();
+    }
+
     /* ───────────── Initialize ───────────── */
     document.addEventListener('DOMContentLoaded', () => {
       loadTheme();
@@ -2529,6 +3097,19 @@
         render();
       });
 
+      document.querySelectorAll('#view-toggle [data-view]').forEach(btn => {
+        btn.addEventListener('click', () => setViewMode(btn.dataset.view));
+      });
+
+      document.querySelectorAll('#density-toggle [data-density]').forEach(btn => {
+        btn.addEventListener('click', () => setDensityMode(btn.dataset.density));
+      });
+
+      document.getElementById('sort-mode').addEventListener('change', e => {
+        State.sortMode = e.target.value;
+        render();
+      });
+
       // Quick add
       document.getElementById('btn-add').addEventListener('click', async () => {
         const text = document.getElementById('add-text').value.trim();
@@ -2540,6 +3121,9 @@
           dueTime: document.getElementById('add-time').value || null,
           date: State.selectedDate,
           completed: false,
+          pinned: false,
+          recurrence: 'none',
+          recurringSourceId: null,
           notes: '',
           reminderDate: null,
           reminderTime: null,
@@ -2580,7 +3164,11 @@
           const task = State.tasks.find(t => t.id === checkbox.dataset.id);
           if (task) {
             const nowCompleted = !task.completed;
-            await updateTask(task.id, { completed: nowCompleted, completedAt: nowCompleted ? new Date().toISOString() : null });
+            const completedAt = nowCompleted ? getCurrentTimestamp() : null;
+            await updateTask(task.id, { completed: nowCompleted, completedAt });
+            if (nowCompleted) {
+              await ensureRecurringTask(task);
+            }
             if (nowCompleted) {
               const allTasks = State.tasks.filter(t => t.date === State.selectedDate);
               const willAllBeCompleted = allTasks.length > 0 && allTasks.every(t => t.id === task.id ? nowCompleted : t.completed);
@@ -2603,6 +3191,16 @@
         if (editBtn) {
           const task = State.tasks.find(t => t.id === editBtn.dataset.id);
           if (task) openEditModal(task);
+          return;
+        }
+
+        const pinBtn = e.target.closest('.task-action-btn.pin');
+        if (pinBtn) {
+          const task = State.tasks.find(t => t.id === pinBtn.dataset.id);
+          if (task) {
+            await updateTask(task.id, { pinned: !task.pinned });
+            showToast(task.pinned ? 'Removed from Top priorities' : 'Added to Top priorities');
+          }
           return;
         }
 
@@ -2717,9 +3315,30 @@
 
       // Escape key
       document.addEventListener('keydown', e => {
+        const target = e.target;
+        const isTypingTarget = target instanceof HTMLElement && (
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable
+        );
+
+        if (e.key === '/' && !isTypingTarget) {
+          e.preventDefault();
+          document.getElementById('filter-search').focus();
+          return;
+        }
+
+        if ((e.key === 'n' || e.key === 'N') && !isTypingTarget && !document.getElementById('edit-modal').classList.contains('visible') && !document.getElementById('confirm-modal').classList.contains('visible')) {
+          e.preventDefault();
+          document.getElementById('add-text').focus();
+          return;
+        }
+
         if (e.key === 'Escape') {
           if (document.getElementById('confirm-modal').classList.contains('visible')) closeConfirm();
           else if (document.getElementById('edit-modal').classList.contains('visible')) closeEditModal();
+          else if (State.editingNoteId) cancelInlineNoteEdit(State.editingNoteId);
         }
       });
     });
