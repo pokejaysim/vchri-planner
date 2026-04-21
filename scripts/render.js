@@ -2,6 +2,8 @@
     function render() {
       renderDateNav();
       renderToolbarState();
+      renderReminderPanel();
+      renderReminderAlerts();
 
       const viewData = getTasksForActiveView();
       const filteredPrimary = filterTasks(viewData.primaryTasks);
@@ -20,6 +22,7 @@
     function renderToolbarState() {
       const counts = {
         today: getTasksForView('today').progressTasks.length,
+        dueSoon: getTasksForView('due-soon').primaryTasks.length,
         upcoming: getTasksForView('upcoming').primaryTasks.length,
         overdue: getTasksForView('overdue').primaryTasks.length,
         done: getTasksForView('done').primaryTasks.length
@@ -33,6 +36,7 @@
       });
 
       document.getElementById('count-today').textContent = counts.today;
+      document.getElementById('count-due-soon').textContent = counts.dueSoon;
       document.getElementById('count-upcoming').textContent = counts.upcoming;
       document.getElementById('count-overdue').textContent = counts.overdue;
       document.getElementById('count-done').textContent = counts.done;
@@ -54,6 +58,18 @@
           progressTasks: upcomingTasks,
           emptyTitle: 'Nothing upcoming',
           emptyText: 'Future tasks will show up here so you can plan ahead.'
+        };
+      }
+
+      if (viewMode === 'due-soon') {
+        const dueSoonTasks = State.tasks.filter(task => isTaskDueSoon(task));
+        return {
+          viewMode,
+          primaryTasks: dueSoonTasks,
+          secondaryTasks: [],
+          progressTasks: dueSoonTasks,
+          emptyTitle: 'No reminders due soon',
+          emptyText: 'Tasks with reminders in the next hour will show up here.'
         };
       }
 
@@ -102,7 +118,9 @@
       const pct = viewMode === 'done' ? (total ? 100 : 0) : (total ? Math.round((done / total) * 100) : 0);
 
       let progressText = 'No tasks for this day yet. Add one above!';
-      if (viewMode === 'upcoming') {
+      if (viewMode === 'due-soon') {
+        progressText = total ? total + ' reminders are due within the next hour' : 'No reminders coming up within the next hour.';
+      } else if (viewMode === 'upcoming') {
         progressText = total ? total + ' upcoming tasks on deck' : 'No upcoming tasks right now.';
       } else if (viewMode === 'overdue') {
         progressText = total ? total + ' overdue tasks need attention' : 'Nothing overdue right now.';
@@ -161,6 +179,10 @@
 
       sorted.sort((a, b) => {
         if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        if (State.viewMode === 'due-soon') {
+          const reminderDiff = getReminderSortValue(a) - getReminderSortValue(b);
+          if (reminderDiff !== 0) return reminderDiff;
+        }
         if (State.viewMode === 'upcoming' || State.viewMode === 'overdue' || State.viewMode === 'done') {
           const byDate = getDateTimeValue(a) - getDateTimeValue(b);
           if (byDate !== 0) return byDate;
@@ -168,6 +190,88 @@
         return (a.sortOrder || 0) - (b.sortOrder || 0);
       });
       return sorted;
+    }
+
+    function renderReminderPanel() {
+      const button = document.getElementById('btn-reminders');
+      const badge = document.getElementById('reminder-badge-count');
+      const panel = document.getElementById('reminder-panel');
+      const list = document.getElementById('reminder-panel-list');
+      const reminders = getPendingReminderTasks();
+      const visibleCount = reminders.length;
+
+      button.classList.toggle('active', State.reminderPanelOpen);
+      button.setAttribute('aria-expanded', String(State.reminderPanelOpen));
+      badge.textContent = visibleCount > 99 ? '99+' : String(visibleCount);
+      badge.classList.toggle('visible', visibleCount > 0);
+      panel.hidden = !State.reminderPanelOpen;
+
+      if (!visibleCount) {
+        list.innerHTML = '<div class="reminder-panel-empty">No reminders are scheduled right now.</div>';
+        return;
+      }
+
+      list.innerHTML = reminders.slice(0, 6).map(task => {
+        const reminderAt = getReminderDateTime(task);
+        const dueSoon = isTaskDueSoon(task);
+        const summary = escapeHtml(getReminderSummaryLabel(task));
+        const dueTime = task.dueTime ? '<span>Due ' + escapeHtml(formatTime(task.dueTime)) + '</span>' : '';
+
+        return '<div class="reminder-panel-item' + (dueSoon ? ' due-soon' : '') + '">' +
+          '<div class="reminder-panel-item-main">' +
+            '<div class="reminder-panel-item-title">' + escapeHtml(stripHashtags(task.text) || task.text) + '</div>' +
+            '<div class="reminder-panel-item-meta">' +
+              '<span>' + summary + '</span>' +
+              dueTime +
+              (dueSoon ? '<span class="reminder-pill due-soon">Due soon</span>' : '<span class="reminder-pill">' + escapeHtml(formatCompactDate(task.date)) + '</span>') +
+            '</div>' +
+          '</div>' +
+          '<button class="reminder-panel-open" type="button" data-reminder-open="' + task.id + '">Open</button>' +
+        '</div>';
+      }).join('');
+    }
+
+    function renderReminderAlerts() {
+      const tray = document.getElementById('reminder-alerts');
+      const alerts = State.activeReminderAlerts
+        .filter(alert => {
+          const task = State.tasks.find(item => item.id === alert.taskId);
+          return !task || !task.completed;
+        })
+        .slice(0, 4);
+
+      State.activeReminderAlerts = alerts;
+
+      if (!alerts.length) {
+        tray.innerHTML = '';
+        return;
+      }
+
+      tray.innerHTML = alerts.map(alert => {
+        const task = State.tasks.find(item => item.id === alert.taskId);
+        const title = escapeHtml(stripHashtags((task && task.text) || alert.title) || (task && task.text) || alert.title);
+        const detailTask = task || alert;
+        const dueLine = detailTask.dueTime
+          ? 'Task due at ' + formatTime(detailTask.dueTime)
+          : 'Reminder fired just now';
+
+        return '<div class="reminder-alert-card">' +
+          '<div class="reminder-alert-top">' +
+            '<div>' +
+              '<div class="reminder-alert-eyebrow">Reminder</div>' +
+              '<div class="reminder-alert-title">' + title + '</div>' +
+              '<div class="reminder-alert-subtitle">' + escapeHtml(dueLine) + '</div>' +
+            '</div>' +
+            '<button class="reminder-alert-close" type="button" data-dismiss-reminder="' + alert.taskId + '" aria-label="Dismiss reminder">&times;</button>' +
+          '</div>' +
+          '<div class="reminder-alert-actions">' +
+            '<button class="reminder-alert-btn primary" type="button" data-reminder-open="' + alert.taskId + '">Open task</button>' +
+            '<button class="reminder-alert-btn" type="button" data-reminder-snooze="10m" data-id="' + alert.taskId + '">Snooze 10 min</button>' +
+            '<button class="reminder-alert-btn" type="button" data-reminder-snooze="30m" data-id="' + alert.taskId + '">Snooze 30 min</button>' +
+            '<button class="reminder-alert-btn" type="button" data-reminder-snooze="tomorrow" data-id="' + alert.taskId + '">Snooze tomorrow</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
     }
 
     function buildTaskCardHtml(task, isCarried) {
@@ -518,5 +622,4 @@
 
       setTimeout(() => container.remove(), 2500);
     }
-
 

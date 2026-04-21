@@ -1,6 +1,7 @@
     /* ───────────── Edit Modal ───────────── */
     function openEditModal(task) {
       rememberFocus();
+      State.reminderPanelOpen = false;
       State.editingId = task.id;
       document.getElementById('edit-modal-title').textContent = 'Edit Task';
       document.getElementById('edit-text').value = task.text;
@@ -17,6 +18,7 @@
       document.getElementById('edit-reminder-time').value = task.reminderTime || '';
 
       document.getElementById('edit-modal').classList.add('visible');
+      renderReminderPanel();
       document.getElementById('edit-text').focus();
     }
 
@@ -61,6 +63,9 @@
         reminderTime: reminderTime || null,
         reminderFired: (reminderDate && reminderTime && reminderChanged) ? false : (existing ? existing.reminderFired : false)
       });
+      if (existing && (reminderChanged || !reminderDate || !reminderTime)) {
+        dismissReminderAlert(existing.id);
+      }
       closeEditModal();
       showToast('Task updated');
     }
@@ -133,6 +138,7 @@
 
     function setViewMode(mode) {
       State.viewMode = mode;
+      State.reminderPanelOpen = false;
       if (mode === 'done') {
         State.filterStatus = 'completed';
       } else if (State.filterStatus === 'completed') {
@@ -146,5 +152,4 @@
       State.densityMode = mode;
       render();
     }
-
 

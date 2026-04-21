@@ -14,6 +14,8 @@
     /* ───────────── Constants ───────────── */
     const THEME_KEY = 'dailyPlanner_theme';
     const REMINDER_POLL_INTERVAL_MS = 30000;
+    const REMINDER_SOON_WINDOW_MS = 60 * 60 * 1000;
+    const QUICK_ENTRY_WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
     const DEFAULT_CATEGORY_ID = 'vchri';
     const RECURRENCE_LABELS = {
@@ -68,6 +70,10 @@
       const div = document.createElement('div');
       div.textContent = str || '';
       return div.innerHTML;
+    }
+
+    function escapeRegExp(str) {
+      return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     function getCurrentTimestamp() {
@@ -137,6 +143,163 @@
       if (!task || !task.reminderDate || !task.reminderTime) return null;
       const dt = new Date(task.reminderDate + 'T' + task.reminderTime + ':00');
       return Number.isNaN(dt.getTime()) ? null : dt;
+    }
+
+    function formatCompactDate(dateStr) {
+      return parseDateOnly(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function formatDateTimeShort(date) {
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
+    function getReminderSortValue(task) {
+      const reminderAt = getReminderDateTime(task);
+      return reminderAt ? reminderAt.getTime() : Number.POSITIVE_INFINITY;
+    }
+
+    function isTaskDueSoon(task, nowMs = Date.now()) {
+      const reminderAt = getReminderDateTime(task);
+      if (!reminderAt || task.completed || task.reminderFired) return false;
+      const reminderMs = reminderAt.getTime();
+      return reminderMs >= nowMs && reminderMs <= nowMs + REMINDER_SOON_WINDOW_MS;
+    }
+
+    function getPendingReminderTasks() {
+      return State.tasks
+        .filter(task => !task.completed && !task.reminderFired && getReminderDateTime(task))
+        .sort((a, b) => getReminderSortValue(a) - getReminderSortValue(b));
+    }
+
+    function getReminderSummaryLabel(task) {
+      const reminderAt = getReminderDateTime(task);
+      if (!reminderAt) return '';
+      if (isTaskDueSoon(task)) return 'Due ' + formatRelativeTime(reminderAt.toISOString());
+      if (task.reminderDate === getTodayString()) return 'Today at ' + formatTime(task.reminderTime);
+      return formatDateTimeShort(reminderAt);
+    }
+
+    function addMinutes(date, minutes) {
+      const next = new Date(date.getTime());
+      next.setMinutes(next.getMinutes() + minutes);
+      return next;
+    }
+
+    function toTimeString(date) {
+      return String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+    }
+
+    function getSnoozeDateTime(mode, now = new Date()) {
+      let next = new Date(now.getTime());
+      if (mode === '10m') next = addMinutes(now, 10);
+      else if (mode === '30m') next = addMinutes(now, 30);
+      else if (mode === 'tomorrow') next = addMinutes(now, 24 * 60);
+      return {
+        date: toDateString(next),
+        time: toTimeString(next)
+      };
+    }
+
+    function getNextWeekday(dateStr, weekdayName) {
+      const targetIndex = QUICK_ENTRY_WEEKDAYS.indexOf(weekdayName.toLowerCase());
+      if (targetIndex === -1) return null;
+      const base = parseDateOnly(dateStr);
+      let offset = (targetIndex - base.getDay() + 7) % 7;
+      if (offset === 0) offset = 7;
+      base.setDate(base.getDate() + offset);
+      return toDateString(base);
+    }
+
+    function parseQuickEntryTime(input) {
+      let match = input.match(/\b(?:at\s+)?([01]?\d|2[0-3]):([0-5]\d)\b/i);
+      if (match) {
+        return {
+          time: String(match[1]).padStart(2, '0') + ':' + match[2],
+          matchedText: match[0]
+        };
+      }
+
+      match = input.match(/\b(?:at\s+)?(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*(am|pm)\b/i);
+      if (!match) return { time: null, matchedText: '' };
+
+      let hours = Number(match[1]);
+      const minutes = match[2] || '00';
+      const meridiem = match[3].toLowerCase();
+      if (meridiem === 'pm' && hours !== 12) hours += 12;
+      if (meridiem === 'am' && hours === 12) hours = 0;
+
+      return {
+        time: String(hours).padStart(2, '0') + ':' + minutes,
+        matchedText: match[0]
+      };
+    }
+
+    function parseQuickEntryDate(input, fallbackDate) {
+      let match = input.match(/\btoday\b/i);
+      if (match) return { date: fallbackDate, matchedText: match[0] };
+
+      match = input.match(/\btomorrow\b/i);
+      if (match) return { date: addDays(fallbackDate, 1), matchedText: match[0] };
+
+      match = input.match(/\b(mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/i);
+      if (!match) return { date: null, matchedText: '' };
+
+      const weekdayName = QUICK_ENTRY_WEEKDAYS.find(day => day.startsWith(match[1].toLowerCase().slice(0, 3)));
+      return {
+        date: weekdayName ? getNextWeekday(fallbackDate, weekdayName) : null,
+        matchedText: match[0]
+      };
+    }
+
+    function cleanQuickEntryText(input, fragmentsToRemove) {
+      let cleaned = input;
+      fragmentsToRemove
+        .filter(Boolean)
+        .sort((a, b) => b.length - a.length)
+        .forEach(fragment => {
+          cleaned = cleaned.replace(new RegExp(escapeRegExp(fragment), 'i'), ' ');
+        });
+
+      cleaned = cleaned
+        .replace(/\b(to|at|on)\b(?=\s*$)/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .replace(/\s+([,.;!?])/g, '$1')
+        .replace(/^[\s,.;:-]+|[\s,.;:-]+$/g, '')
+        .trim();
+
+      return cleaned || input.trim();
+    }
+
+    function parseQuickEntry(input, fallbackDate, fallbackTime) {
+      const raw = (input || '').trim();
+      const dateMatch = parseQuickEntryDate(raw, fallbackDate);
+      const timeMatch = parseQuickEntryTime(raw);
+      const reminderMatch = raw.match(/\b(remind me(?:\s+to)?|notify me(?:\s+to)?|set reminder(?:\s+to)?|reminder)\b/i);
+      const reminderIntent = !!reminderMatch;
+      const date = dateMatch.date || fallbackDate;
+      const dueTime = timeMatch.time || fallbackTime || null;
+      const reminderDate = reminderIntent && dueTime ? date : null;
+      const reminderTime = reminderIntent && dueTime ? dueTime : null;
+      const text = cleanQuickEntryText(raw, [
+        dateMatch.matchedText,
+        timeMatch.matchedText,
+        reminderMatch ? reminderMatch[0] : ''
+      ]);
+
+      return {
+        text,
+        date,
+        dueTime,
+        reminderDate,
+        reminderTime,
+        usedNaturalLanguage: reminderIntent || !!dateMatch.matchedText || !!timeMatch.matchedText
+      };
     }
 
     function getTaskNotes(task) {
@@ -350,6 +513,60 @@
       document.getElementById('btn-theme').innerHTML = isDark ? '☀' : '☾';
     }
 
+    function jumpToTask(taskId) {
+      const task = State.tasks.find(item => item.id === taskId);
+      if (!task) {
+        showToast('Task could not be found');
+        return;
+      }
+
+      State.selectedDate = task.date;
+      State.viewMode = task.completed ? 'done' : 'today';
+      State.reminderPanelOpen = false;
+      if (task.completed) {
+        State.filterStatus = 'completed';
+      } else if (State.filterStatus === 'completed') {
+        State.filterStatus = '';
+      }
+      const filterStatus = document.getElementById('filter-status');
+      if (filterStatus) filterStatus.value = State.filterStatus;
+
+      render();
+      requestAnimationFrame(() => {
+        const card = document.querySelector('[data-task-id="' + taskId + '"]');
+        if (!card) return;
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('flash-focus');
+        setTimeout(() => card.classList.remove('flash-focus'), 1200);
+      });
+    }
+
+    function dismissReminderAlert(taskId) {
+      State.activeReminderAlerts = State.activeReminderAlerts.filter(alert => alert.taskId !== taskId);
+      renderReminderAlerts();
+    }
+
+    function upsertReminderAlert(task) {
+      const reminderAt = getReminderDateTime(task);
+      if (!reminderAt) return;
+      const nextAlert = {
+        taskId: task.id,
+        title: task.text,
+        dueTime: task.dueTime || '',
+        reminderDate: task.reminderDate,
+        reminderTime: task.reminderTime,
+        firedAt: getCurrentTimestamp()
+      };
+      const existingIndex = State.activeReminderAlerts.findIndex(alert => alert.taskId === task.id);
+      if (existingIndex >= 0) {
+        State.activeReminderAlerts.splice(existingIndex, 1, nextAlert);
+      } else {
+        State.activeReminderAlerts.unshift(nextAlert);
+      }
+      State.activeReminderAlerts = State.activeReminderAlerts.slice(0, 4);
+      renderReminderAlerts();
+    }
+
     function rememberFocus() {
       lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     }
@@ -430,6 +647,8 @@
       expandedNotes: {},
       editingNoteId: null,
       noteDrafts: {},
+      reminderPanelOpen: false,
+      activeReminderAlerts: [],
       carriedExpanded: true,
       workExpanded: true
     };
@@ -470,5 +689,4 @@
         container.innerHTML = '';
       }
     }
-
 

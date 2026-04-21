@@ -27,6 +27,16 @@
         render();
       });
 
+      document.getElementById('btn-reminders').addEventListener('click', e => {
+        e.stopPropagation();
+        State.reminderPanelOpen = !State.reminderPanelOpen;
+        renderReminderPanel();
+      });
+
+      document.getElementById('reminder-panel').addEventListener('click', e => {
+        e.stopPropagation();
+      });
+
       document.querySelectorAll('#view-toggle [data-view]').forEach(btn => {
         btn.addEventListener('click', () => setViewMode(btn.dataset.view));
       });
@@ -42,21 +52,41 @@
 
       // Quick add
       document.getElementById('btn-add').addEventListener('click', async () => {
-        const text = document.getElementById('add-text').value.trim();
-        if (!text) return;
+        const rawText = document.getElementById('add-text').value.trim();
+        if (!rawText) return;
+        const previousSelectedDate = State.selectedDate;
+        const explicitTime = document.getElementById('add-time').value || null;
+        const parsed = parseQuickEntry(rawText, State.selectedDate, explicitTime);
+
+        if (parsed.reminderDate && parsed.reminderTime) {
+          const permission = await requestNotificationPermissionIfNeeded();
+          if (permission === 'denied') {
+            showToast('Notifications are blocked. Reminders will show inside the planner while this tab stays open.');
+          } else if (permission === 'unsupported') {
+            showToast('This browser does not support notifications. Reminders will show inside the planner while this tab stays open.');
+          }
+        }
+
+        State.selectedDate = parsed.date;
+        if (State.viewMode === 'done' || (parsed.usedNaturalLanguage && parsed.date !== previousSelectedDate)) {
+          State.viewMode = 'today';
+          State.filterStatus = '';
+          document.getElementById('filter-status').value = '';
+        }
+
         await addTask({
-          text,
+          text: parsed.text,
           priority: document.getElementById('add-priority').value,
           category: DEFAULT_CATEGORY_ID,
-          dueTime: document.getElementById('add-time').value || null,
-          date: State.selectedDate,
+          dueTime: parsed.dueTime,
+          date: parsed.date,
           completed: false,
           pinned: false,
           recurrence: 'none',
           recurringSourceId: null,
           notes: '',
-          reminderDate: null,
-          reminderTime: null,
+          reminderDate: parsed.reminderDate,
+          reminderTime: parsed.reminderTime,
           reminderFired: false
         });
         document.getElementById('add-text').value = '';
@@ -259,6 +289,44 @@
         e.target.value = '';
       });
 
+      document.getElementById('reminder-panel-due-soon').addEventListener('click', () => {
+        setViewMode('due-soon');
+      });
+
+      document.getElementById('reminder-panel').addEventListener('click', e => {
+        const openBtn = e.target.closest('[data-reminder-open]');
+        if (!openBtn) return;
+        jumpToTask(openBtn.dataset.reminderOpen);
+      });
+
+      document.getElementById('reminder-alerts').addEventListener('click', async e => {
+        const snoozeBtn = e.target.closest('[data-reminder-snooze]');
+        if (snoozeBtn) {
+          await snoozeReminder(snoozeBtn.dataset.id, snoozeBtn.dataset.reminderSnooze);
+          return;
+        }
+
+        const dismissBtn = e.target.closest('[data-dismiss-reminder]');
+        if (dismissBtn) {
+          dismissReminderAlert(dismissBtn.dataset.dismissReminder);
+          return;
+        }
+
+        const openBtn = e.target.closest('[data-reminder-open]');
+        if (openBtn) {
+          jumpToTask(openBtn.dataset.reminderOpen);
+        }
+      });
+
+      document.addEventListener('click', e => {
+        if (!State.reminderPanelOpen) return;
+        const withinPanel = e.target.closest('#reminder-panel') || e.target.closest('#btn-reminders');
+        if (!withinPanel) {
+          State.reminderPanelOpen = false;
+          renderReminderPanel();
+        }
+      });
+
       // Escape key
       document.addEventListener('keydown', e => {
         const target = e.target;
@@ -282,10 +350,12 @@
         }
 
         if (e.key === 'Escape') {
-          if (document.getElementById('confirm-modal').classList.contains('visible')) closeConfirm();
+          if (State.reminderPanelOpen) {
+            State.reminderPanelOpen = false;
+            renderReminderPanel();
+          } else if (document.getElementById('confirm-modal').classList.contains('visible')) closeConfirm();
           else if (document.getElementById('edit-modal').classList.contains('visible')) closeEditModal();
           else if (State.editingNoteId) cancelInlineNoteEdit(State.editingNoteId);
         }
       });
     });
-

@@ -90,6 +90,10 @@
       setSyncStatus('syncing');
       db.collection('planner_tasks').onSnapshot(snapshot => {
         State.tasks = snapshot.docs.map(doc => normalizeTask({ id: doc.id, ...doc.data() }));
+        State.activeReminderAlerts = State.activeReminderAlerts.filter(alert => {
+          const task = State.tasks.find(item => item.id === alert.taskId);
+          return !!task && !task.completed;
+        });
         setSyncStatus('synced');
         document.getElementById('loading').style.display = 'none';
         render();
@@ -116,20 +120,46 @@
           body,
           tag: 'planner-reminder-' + task.id
         });
-      } else {
-        showToast('Reminder: ' + task.text);
       }
+      showToast('Reminder: ' + task.text);
+      upsertReminderAlert(task);
+    }
+
+    async function snoozeReminder(taskId, mode) {
+      const task = State.tasks.find(item => item.id === taskId);
+      if (!task) {
+        dismissReminderAlert(taskId);
+        showToast('Task could not be found');
+        return;
+      }
+
+      const nextReminder = getSnoozeDateTime(mode);
+      await updateTask(taskId, {
+        reminderDate: nextReminder.date,
+        reminderTime: nextReminder.time,
+        reminderFired: false,
+        reminderFiredAt: null
+      });
+      task.reminderDate = nextReminder.date;
+      task.reminderTime = nextReminder.time;
+      task.reminderFired = false;
+      task.reminderFiredAt = null;
+      dismissReminderAlert(taskId);
+      render();
+      showToast(mode === 'tomorrow' ? 'Reminder snoozed until tomorrow' : 'Reminder snoozed');
     }
 
     async function triggerReminderIfDue(task) {
       const reminderAt = getReminderDateTime(task);
       if (!reminderAt || reminderAt.getTime() > Date.now() || task.completed || task.reminderFired) return false;
       try {
+        let latestTask = task;
         const claimed = await db.runTransaction(async tx => {
           const ref = db.collection('planner_tasks').doc(task.id);
           const snapshot = await tx.get(ref);
           if (!snapshot.exists) return false;
-          const latest = { id: snapshot.id, ...snapshot.data() };
+          const latest = normalizeTask({ id: snapshot.id, ...snapshot.data() });
+          latestTask = latest;
           const latestReminderAt = getReminderDateTime(latest);
           if (!latestReminderAt || latestReminderAt.getTime() > Date.now() || latest.completed || latest.reminderFired) {
             return false;
@@ -142,7 +172,7 @@
         });
 
         if (!claimed) return false;
-        showReminderAlert(task);
+        showReminderAlert(latestTask);
         return true;
       } catch (e) {
         console.error('Reminder error:', e);
@@ -162,5 +192,3 @@
       checkDueReminders();
       reminderTimer = setInterval(checkDueReminders, REMINDER_POLL_INTERVAL_MS);
     }
-
-

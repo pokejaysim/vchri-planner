@@ -21,9 +21,23 @@
           <span class="sync-dot" id="sync-dot"></span>
           <span id="sync-text">Synced</span>
         </div>
+        <button class="btn-icon btn-reminders" id="btn-reminders" type="button" title="Upcoming reminders" aria-label="View upcoming reminders" aria-expanded="false" aria-controls="reminder-panel">
+          &#128276;
+          <span class="btn-icon-badge" id="reminder-badge-count">0</span>
+        </button>
         <button class="btn-icon" id="btn-import" type="button" title="Import data" aria-label="Import planner data">&#8593;</button>
         <button class="btn-icon" id="btn-export" type="button" title="Export data" aria-label="Export planner data">&#8595;</button>
         <button class="btn-icon" id="btn-theme" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">&#9790;</button>
+        <div class="reminder-panel" id="reminder-panel" hidden>
+          <div class="reminder-panel-header">
+            <div>
+              <div class="reminder-panel-title">Upcoming reminders</div>
+              <div class="reminder-panel-subtitle">Keep an eye on what is coming up next.</div>
+            </div>
+            <button class="reminder-panel-link" id="reminder-panel-due-soon" type="button">Due soon view</button>
+          </div>
+          <div class="reminder-panel-list" id="reminder-panel-list"></div>
+        </div>
         <input type="file" id="import-file" accept=".json">
       </div>
     </header>
@@ -52,6 +66,7 @@
         <span class="toolbar-label">View</span>
         <div class="segmented-control" id="view-toggle">
           <button class="segment-btn" type="button" data-view="today">Today <span class="segment-count" id="count-today">0</span></button>
+          <button class="segment-btn" type="button" data-view="due-soon">Due soon <span class="segment-count" id="count-due-soon">0</span></button>
           <button class="segment-btn" type="button" data-view="upcoming">Upcoming <span class="segment-count" id="count-upcoming">0</span></button>
           <button class="segment-btn" type="button" data-view="overdue">Overdue <span class="segment-count" id="count-overdue">0</span></button>
           <button class="segment-btn" type="button" data-view="done">Done <span class="segment-count" id="count-done">0</span></button>
@@ -85,6 +100,7 @@
       <input type="time" id="add-time">
       <button class="btn btn-primary" id="btn-add" type="button">+ Add</button>
     </div>
+    <div class="quick-add-hint">Try natural entry like <code>Call Sarah tomorrow 3pm</code> or <code>Remind me to send the agenda Friday 9am</code>.</div>
 
     <!-- Filter Bar -->
     <div class="filter-bar">
@@ -216,6 +232,8 @@
       </div>
     </div>
   </div>
+
+  <div class="reminder-alerts" id="reminder-alerts" aria-live="assertive" aria-label="Reminder alerts"></div>
 
   <!-- Toast -->
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
