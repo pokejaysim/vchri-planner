@@ -209,6 +209,22 @@
       line-height: 1;
     }
     .btn-icon:hover { background: var(--color-primary-light); border-color: var(--color-primary); color: var(--color-primary); }
+    .btn:focus-visible,
+    .btn-icon:focus-visible,
+    .date-nav-btn:focus-visible,
+    .date-nav-today:focus-visible,
+    .task-checkbox:focus-visible,
+    .task-action-btn:focus-visible,
+    .task-note-btn:focus-visible,
+    .reorder-btn:focus-visible,
+    .move-today-btn:focus-visible,
+    .group-header:focus-visible,
+    .carried-header:focus-visible,
+    .modal-close:focus-visible,
+    .reminder-preset-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--color-primary-glow);
+    }
 
     /* ── Date Navigation ── */
     .date-nav {
@@ -481,6 +497,8 @@
       flex-shrink: 0;
       transition: all 0.2s ease;
       position: relative;
+      background: transparent;
+      padding: 0;
     }
     .task-checkbox:hover { border-color: var(--color-primary); }
 
@@ -517,6 +535,169 @@
       font-weight: 500;
       color: var(--color-text);
       word-break: break-word;
+    }
+
+    .task-note-preview {
+      margin-top: var(--space-sm);
+      padding: 10px 12px;
+      background: rgba(99, 102, 241, 0.06);
+      border: 1px solid rgba(99, 102, 241, 0.12);
+      border-radius: var(--radius-sm);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      overflow: hidden;
+    }
+    [data-theme="dark"] .task-note-preview {
+      background: rgba(129, 140, 248, 0.12);
+      border-color: rgba(129, 140, 248, 0.2);
+      color: var(--color-text);
+    }
+
+    .task-note-full {
+      margin-top: var(--space-sm);
+      padding: 12px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    .task-note-paragraph + .task-note-paragraph,
+    .task-note-list + .task-note-paragraph,
+    .task-note-paragraph + .task-note-list {
+      margin-top: var(--space-sm);
+    }
+
+    .task-note-paragraph a,
+    .task-note-item a {
+      color: var(--color-primary);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      word-break: break-all;
+    }
+
+    .task-note-list {
+      margin: 0;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .task-note-item {
+      color: var(--color-text-secondary);
+    }
+
+    .task-note-item.checklist {
+      list-style: none;
+      margin-left: -18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .task-note-check {
+      width: 16px;
+      height: 16px;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 0.6875rem;
+      margin-top: 3px;
+      color: var(--color-primary);
+      background: var(--color-bg);
+    }
+
+    .task-note-item.checklist.checked .task-note-check {
+      background: rgba(99, 102, 241, 0.14);
+      border-color: rgba(99, 102, 241, 0.35);
+    }
+
+    .task-note-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-top: var(--space-sm);
+      flex-wrap: wrap;
+    }
+
+    .task-note-toggle,
+    .task-note-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: none;
+      background: transparent;
+      color: var(--color-primary);
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      padding: 0;
+      cursor: pointer;
+    }
+    .task-note-toggle:hover,
+    .task-note-btn:hover { color: var(--color-primary-hover); }
+
+    .task-note-btn.subtle {
+      color: var(--color-text-secondary);
+    }
+    .task-note-btn.subtle:hover {
+      color: var(--color-text);
+    }
+
+    .task-note-editor {
+      width: 100%;
+      margin-top: var(--space-sm);
+      min-height: 140px;
+      resize: vertical;
+      border: 2px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      color: var(--color-text);
+      font-family: var(--font-family);
+      font-size: var(--font-size-sm);
+      line-height: 1.6;
+      padding: 12px;
+      outline: none;
+    }
+    .task-note-editor:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-glow);
+    }
+
+    .task-note-editor-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      flex-wrap: wrap;
+      margin-top: var(--space-sm);
+    }
+
+    .note-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 8px;
+      border-radius: var(--radius-pill);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      background: rgba(59, 130, 246, 0.12);
+      color: #2563eb;
+    }
+    [data-theme="dark"] .note-badge {
+      background: rgba(96, 165, 250, 0.16);
+      color: #93c5fd;
     }
 
     .task-meta {
@@ -717,7 +898,13 @@
       box-shadow: 0 0 0 3px var(--color-primary-glow);
     }
 
-    .form-textarea { resize: vertical; min-height: 80px; }
+    .form-textarea { resize: vertical; min-height: 140px; }
+
+    .form-help {
+      margin-top: var(--space-xs);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+    }
 
     .form-row {
       display: flex;
@@ -1024,6 +1211,11 @@
       font-weight: 600;
       color: var(--color-text-secondary);
       transition: background-color 0.15s ease;
+      width: 100%;
+      border: none;
+      background: transparent;
+      text-align: left;
+      font-family: var(--font-family);
     }
     .carried-header:hover { background: var(--color-bg); }
 
@@ -1105,6 +1297,9 @@
       margin-bottom: 6px;
       cursor: pointer;
       user-select: none;
+      width: 100%;
+      border: none;
+      font-family: var(--font-family);
     }
     .group-header:hover { opacity: 0.85; }
     .group-header-arrow {
@@ -1115,11 +1310,7 @@
     .group-header-arrow.expanded { transform: rotate(90deg); }
     .group-body.collapsed { display: none; }
     .group-header.work { border-left-color: #3b82f6; color: #3b82f6; }
-    .group-header.pjs { border-left-color: #8b5cf6; color: #8b5cf6; }
-    .group-header.home { border-left-color: #10b981; color: #10b981; }
     [data-theme="dark"] .group-header.work { color: #60a5fa; border-left-color: #60a5fa; }
-    [data-theme="dark"] .group-header.pjs { color: #a78bfa; border-left-color: #a78bfa; }
-    [data-theme="dark"] .group-header.home { color: #34d399; border-left-color: #34d399; }
     .group-header-count {
       font-size: 0.6875rem;
       font-weight: 600;
@@ -1140,9 +1331,7 @@
       margin-left: auto;
     }
     .group-label.work { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
-    .group-label.home { background: rgba(16, 185, 129, 0.1); color: #10b981; }
     [data-theme="dark"] .group-label.work { color: #818cf8; }
-    [data-theme="dark"] .group-label.home { color: #34d399; }
 
     /* ── Hashtags ── */
     .hashtag {
@@ -1204,24 +1393,24 @@
     <header class="app-header">
       <h1 class="app-title">Daily Planner</h1>
       <div class="header-actions">
-        <div class="sync-status">
+        <div class="sync-status" aria-live="polite">
           <span class="sync-dot" id="sync-dot"></span>
           <span id="sync-text">Synced</span>
         </div>
-        <button class="btn-icon" id="btn-categories" title="Manage categories">&#9881;</button>
-        <button class="btn-icon" id="btn-import" title="Import data">&#8593;</button>
-        <button class="btn-icon" id="btn-export" title="Export data">&#8595;</button>
-        <button class="btn-icon" id="btn-theme" title="Toggle dark mode">&#9790;</button>
+        <button class="btn-icon" id="btn-categories" type="button" title="Manage categories" aria-label="Manage categories">&#9881;</button>
+        <button class="btn-icon" id="btn-import" type="button" title="Import data" aria-label="Import planner data">&#8593;</button>
+        <button class="btn-icon" id="btn-export" type="button" title="Export data" aria-label="Export planner data">&#8595;</button>
+        <button class="btn-icon" id="btn-theme" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">&#9790;</button>
         <input type="file" id="import-file" accept=".json">
       </div>
     </header>
 
     <!-- Date Navigation -->
     <div class="date-nav">
-      <button class="date-nav-btn" id="date-prev">&#9664;</button>
+      <button class="date-nav-btn" id="date-prev" type="button" aria-label="Previous day">&#9664;</button>
       <span class="date-nav-date" id="date-display"></span>
-      <button class="date-nav-btn" id="date-next">&#9654;</button>
-      <button class="date-nav-today" id="date-today">Today</button>
+      <button class="date-nav-btn" id="date-next" type="button" aria-label="Next day">&#9654;</button>
+      <button class="date-nav-today" id="date-today" type="button">Today</button>
     </div>
 
     <!-- Progress -->
@@ -1245,7 +1434,7 @@
       </select>
       <select id="add-category"></select>
       <input type="time" id="add-time">
-      <button class="btn btn-primary" id="btn-add">+ Add</button>
+      <button class="btn btn-primary" id="btn-add" type="button">+ Add</button>
     </div>
 
     <!-- Filter Bar -->
@@ -1265,6 +1454,11 @@
         <option value="active">Active</option>
         <option value="completed">Completed</option>
       </select>
+      <select id="filter-notes">
+        <option value="">All Notes</option>
+        <option value="with-notes">Has Notes</option>
+        <option value="without-notes">No Notes</option>
+      </select>
       <span id="active-tag-container"></span>
     </div>
 
@@ -1280,20 +1474,20 @@
   </div>
 
   <!-- Edit Task Modal -->
-  <div class="modal-overlay" id="edit-modal">
+  <div class="modal-overlay" id="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
     <div class="modal">
       <div class="modal-header">
         <h2 class="modal-title" id="edit-modal-title">Edit Task</h2>
-        <button class="modal-close" id="edit-modal-close">&times;</button>
+        <button class="modal-close" id="edit-modal-close" type="button" aria-label="Close edit task dialog">&times;</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label class="form-label">Task</label>
+          <label class="form-label" for="edit-text">Task</label>
           <input type="text" class="form-input" id="edit-text">
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Priority</label>
+            <label class="form-label" for="edit-priority">Priority</label>
             <select class="form-select" id="edit-priority">
               <option value="high">High</option>
               <option value="medium">Medium</option>
@@ -1301,23 +1495,24 @@
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Category</label>
+            <label class="form-label" for="edit-category">Category</label>
             <select class="form-select" id="edit-category"></select>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Due Time</label>
+          <label class="form-label" for="edit-time">Due Time</label>
           <input type="time" class="form-input" id="edit-time">
         </div>
         <div class="form-group">
-          <label class="form-label">Notes</label>
+          <label class="form-label" for="edit-notes">Notes</label>
           <textarea class="form-textarea" id="edit-notes" placeholder="Add notes..."></textarea>
+          <p class="form-help">Use notes for context, links, follow-ups, and running updates. Notes now show on the task card and are searchable.</p>
         </div>
         <div class="form-group">
           <div class="reminder-section">
             <label class="reminder-toggle-row">
               <input type="checkbox" id="edit-reminder-toggle">
-              <span class="reminder-toggle-label">&#128276; Set a reminder</span>
+              <span class="reminder-toggle-label">&#128276; Send a browser reminder</span>
             </label>
             <div class="reminder-controls" id="reminder-controls">
               <div class="reminder-presets">
@@ -1327,43 +1522,44 @@
                 <button type="button" class="reminder-preset-btn" data-preset="7d">In 7 days</button>
               </div>
               <div class="reminder-fields">
-                <input type="date" id="edit-reminder-date" title="Reminder date">
-                <input type="time" id="edit-reminder-time" title="Reminder time">
+                <input type="date" id="edit-reminder-date" title="Reminder date" aria-label="Reminder date">
+                <input type="time" id="edit-reminder-time" title="Reminder time" aria-label="Reminder time">
               </div>
+              <p class="form-help">Browser reminders fire while this tab is open. If notifications are blocked, the planner shows an in-app alert instead.</p>
             </div>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="edit-cancel">Cancel</button>
-        <button class="btn btn-primary" id="edit-save">Save</button>
+        <button class="btn btn-secondary" id="edit-cancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="edit-save" type="button">Save</button>
       </div>
     </div>
   </div>
 
   <!-- Confirm Modal -->
-  <div class="modal-overlay" id="confirm-modal">
+  <div class="modal-overlay" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
     <div class="modal" style="max-width: 400px;">
       <div class="modal-header">
         <h2 class="modal-title" id="confirm-title">Confirm</h2>
-        <button class="modal-close" id="confirm-close">&times;</button>
+        <button class="modal-close" id="confirm-close" type="button" aria-label="Close confirmation dialog">&times;</button>
       </div>
       <div class="modal-body">
         <p id="confirm-message"></p>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
-        <button class="btn btn-danger" id="confirm-ok">Delete</button>
+        <button class="btn btn-secondary" id="confirm-cancel" type="button">Cancel</button>
+        <button class="btn btn-danger" id="confirm-ok" type="button">Delete</button>
       </div>
     </div>
   </div>
 
   <!-- Manage Categories Modal -->
-  <div class="modal-overlay" id="categories-modal">
+  <div class="modal-overlay" id="categories-modal" role="dialog" aria-modal="true" aria-labelledby="categories-title">
     <div class="modal">
       <div class="modal-header">
-        <h2 class="modal-title">Manage Categories</h2>
-        <button class="modal-close" id="categories-close">&times;</button>
+        <h2 class="modal-title" id="categories-title">Manage Categories</h2>
+        <button class="modal-close" id="categories-close" type="button" aria-label="Close categories dialog">&times;</button>
       </div>
       <div class="modal-body">
         <div class="category-list" id="category-list"></div>
@@ -1371,23 +1567,18 @@
           <input type="text" id="new-cat-icon" placeholder="Emoji" style="width: 50px; text-align: center;">
           <input type="text" id="new-cat-name" placeholder="Category name" style="flex: 1;">
           <input type="color" id="new-cat-color" value="#6366f1" style="width: 40px; height: 32px; padding: 2px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); cursor: pointer;">
-          <select id="new-cat-group" style="padding: 4px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font-size: 0.8125rem;">
-            <option value="work">VCHRI</option>
-            <option value="pjs">PJS</option>
-            <option value="home">Home</option>
-          </select>
-          <button class="btn btn-primary" id="btn-add-cat" style="padding: 6px 12px;">Add</button>
+          <button class="btn btn-primary" id="btn-add-cat" type="button" style="padding: 6px 12px;">Add</button>
         </div>
       </div>
       <div class="modal-footer" style="justify-content: space-between;">
-        <button class="btn btn-danger" id="categories-reset" style="font-size: 0.75rem;">Reset to Defaults</button>
-        <button class="btn btn-secondary" id="categories-done">Done</button>
+        <button class="btn btn-danger" id="categories-reset" type="button" style="font-size: 0.75rem;">Reset to Defaults</button>
+        <button class="btn btn-secondary" id="categories-done" type="button">Done</button>
       </div>
     </div>
   </div>
 
   <!-- Toast -->
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -1409,12 +1600,10 @@
 
     /* ───────────── Constants ───────────── */
     const THEME_KEY = 'dailyPlanner_theme';
+    const REMINDER_POLL_INTERVAL_MS = 30000;
 
     const DEFAULT_CATEGORIES = [
-      { id: 'vchri',    name: 'VCHRI',            color: '#3b82f6', icon: '🏥', group: 'work' },
-      { id: 'meetings', name: 'Meetings',         color: '#f59e0b', icon: '📅', group: 'work' },
-      { id: 'pjs',      name: 'PJS Collectibles', color: '#8b5cf6', icon: '🎴', group: 'pjs' },
-      { id: 'home',     name: 'Home',             color: '#10b981', icon: '🏠', group: 'home' }
+      { id: 'vchri', name: 'VCHRI', color: '#3b82f6', icon: '🏥', group: 'work' }
     ];
 
     /* ───────────── Helpers ───────────── */
@@ -1459,25 +1648,86 @@
       return div.innerHTML;
     }
 
+    function getReminderDateTime(task) {
+      if (!task || !task.reminderDate || !task.reminderTime) return null;
+      const dt = new Date(task.reminderDate + 'T' + task.reminderTime + ':00');
+      return Number.isNaN(dt.getTime()) ? null : dt;
+    }
+
+    function getTaskNotes(task) {
+      return (task.notes || '').trim();
+    }
+
+    function getNotePreview(noteText) {
+      const preview = noteText.split(/\r?\n/).map(line => line.trim()).filter(Boolean).slice(0, 3).join('\n');
+      return preview.length > 180 ? preview.slice(0, 177).trimEnd() + '...' : preview;
+    }
+
+    function linkifyText(text) {
+      return escapeHtml(text).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+    }
+
+    function renderNoteHtml(noteText) {
+      const lines = noteText.split(/\r?\n/);
+      let html = '';
+      let listItems = [];
+
+      const flushList = () => {
+        if (!listItems.length) return;
+        html += '<ul class="task-note-list">' + listItems.join('') + '</ul>';
+        listItems = [];
+      };
+
+      for (const rawLine of lines) {
+        const line = rawLine.trimEnd();
+        if (!line.trim()) {
+          flushList();
+          continue;
+        }
+
+        const checklistMatch = line.match(/^\s*[-*]\s+\[([ xX])\]\s+(.*)$/);
+        if (checklistMatch) {
+          const checked = checklistMatch[1].toLowerCase() === 'x';
+          listItems.push(
+            '<li class="task-note-item checklist' + (checked ? ' checked' : '') + '">' +
+              '<span class="task-note-check">' + (checked ? '✓' : '') + '</span>' +
+              '<span>' + linkifyText(checklistMatch[2]) + '</span>' +
+            '</li>'
+          );
+          continue;
+        }
+
+        const bulletMatch = line.match(/^\s*[-*]\s+(.*)$/);
+        if (bulletMatch) {
+          listItems.push('<li class="task-note-item">' + linkifyText(bulletMatch[1]) + '</li>');
+          continue;
+        }
+
+        flushList();
+        html += '<p class="task-note-paragraph">' + linkifyText(line) + '</p>';
+      }
+
+      flushList();
+      return html;
+    }
+
+    function normalizeCategoryGroup(group) {
+      return 'work';
+    }
+
     function getCategoryGroup(catId) {
-      // First check by ID directly
-      if (catId && catId.toLowerCase && catId.toLowerCase().includes('pjs')) return 'pjs';
-      if (catId && catId.toLowerCase && catId.toLowerCase().includes('home')) return 'home';
-      
       const cat = State.categories.find(c => c.id === catId);
       if (!cat) return 'work';
-      // Check by group property
-      if (cat.group === 'pjs') return 'pjs';
-      if (cat.group === 'home') return 'home';
-      if (cat.group) return cat.group;
-      // Fallback: check by name for PJS detection
-      if (cat.name && cat.name.toLowerCase().includes('pjs')) return 'pjs';
-      if (cat.name && cat.name.toLowerCase().includes('home')) return 'home';
+      // Legacy categories are folded into the single VCHRI bucket.
+      if (cat.group) return normalizeCategoryGroup(cat.group);
       return 'work';
     }
 
     /* ───────────── Toast ───────────── */
     let toastTimer = null;
+    let reminderTimer = null;
+    let lastFocusedElement = null;
+
     function showToast(message) {
       const el = document.getElementById('toast');
       el.textContent = message;
@@ -1518,6 +1768,65 @@
       document.getElementById('btn-theme').innerHTML = isDark ? '☀' : '☾';
     }
 
+    function rememberFocus() {
+      lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    }
+
+    function restoreFocus() {
+      if (lastFocusedElement && document.contains(lastFocusedElement) && typeof lastFocusedElement.focus === 'function') {
+        lastFocusedElement.focus();
+      }
+      lastFocusedElement = null;
+    }
+
+    async function copyTextToClipboard(text) {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.setAttribute('readonly', '');
+          textarea.style.position = 'absolute';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+        }
+        showToast('Note copied');
+      } catch (e) {
+        console.error('Copy error:', e);
+        showToast('Failed to copy note');
+      }
+    }
+
+    function beginInlineNoteEdit(task) {
+      State.editingNoteId = task.id;
+      State.noteDrafts[task.id] = task.notes || '';
+      State.expandedNotes[task.id] = true;
+      render();
+    }
+
+    function cancelInlineNoteEdit(id) {
+      State.editingNoteId = null;
+      delete State.noteDrafts[id];
+      render();
+    }
+
+    async function saveInlineNoteEdit(id) {
+      const draft = (State.noteDrafts[id] || '').trim();
+      await updateTask(id, { notes: draft });
+      const task = State.tasks.find(item => item.id === id);
+      if (task) task.notes = draft;
+      State.editingNoteId = null;
+      delete State.noteDrafts[id];
+      if (!draft) delete State.expandedNotes[id];
+      else State.expandedNotes[id] = true;
+      render();
+      showToast(draft ? 'Note saved' : 'Note removed');
+    }
+
     /* ───────────── State ───────────── */
     const State = {
       selectedDate: getTodayString(),
@@ -1527,12 +1836,14 @@
       filterPriority: '',
       filterCategory: '',
       filterStatus: '',
+      filterNotes: '',
       filterTag: '',
       editingId: null,
+      expandedNotes: {},
+      editingNoteId: null,
+      noteDrafts: {},
       carriedExpanded: true,
-      workExpanded: true,
-      pjsExpanded: true,
-      homeExpanded: true
+      workExpanded: true
     };
 
     /* ───────────── Hashtag Helpers ───────────── */
@@ -1573,31 +1884,18 @@
     }
 
     /* ───────────── Firebase Operations ───────────── */
-    async function loadTasks() {
-      try {
-        setSyncStatus('syncing');
-        const snapshot = await db.collection('planner_tasks').get();
-        State.tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setSyncStatus('synced');
-        render();
-        document.getElementById('loading').style.display = 'none';
-      } catch (e) {
-        console.error('Load error:', e);
-        setSyncStatus('offline');
-        showToast('Failed to load tasks');
-        document.getElementById('loading').style.display = 'none';
-      }
-    }
-
     async function loadCategories() {
       try {
         const doc = await db.collection('settings').doc('planner_categories').get();
         if (doc.exists && doc.data().categories) {
-          State.categories = doc.data().categories;
+          State.categories = doc.data().categories.map(category => ({
+            ...category,
+            group: normalizeCategoryGroup(category.group || 'work')
+          }));
         }
-        // Ensure defaults exist
-        if (!State.categories.find(c => c.id === 'home')) {
-          State.categories.push({ id: 'home', name: 'Home To-Do', color: '#10b981', icon: '🧹', group: 'home' });
+        // Ensure the main VCHRI category always exists.
+        if (!State.categories.find(c => c.id === 'vchri')) {
+          State.categories.unshift(DEFAULT_CATEGORIES[0]);
         }
         refreshCategoryDropdowns();
       } catch (e) {
@@ -1657,42 +1955,92 @@
     }
 
     function setupRealtimeSync() {
+      setSyncStatus('syncing');
       db.collection('planner_tasks').onSnapshot(snapshot => {
         State.tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setSyncStatus('synced');
+        document.getElementById('loading').style.display = 'none';
         render();
       }, err => {
         console.error('Realtime error:', err);
         setSyncStatus('offline');
+        document.getElementById('loading').style.display = 'none';
+        showToast('Failed to load tasks');
       });
+    }
+
+    async function requestNotificationPermissionIfNeeded() {
+      if (!('Notification' in window)) return 'unsupported';
+      if (Notification.permission === 'default') {
+        return Notification.requestPermission();
+      }
+      return Notification.permission;
+    }
+
+    function showReminderAlert(task) {
+      const body = task.dueTime ? task.text + ' due at ' + formatTime(task.dueTime) : task.text;
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Planner reminder', {
+          body,
+          tag: 'planner-reminder-' + task.id
+        });
+      } else {
+        showToast('Reminder: ' + task.text);
+      }
+    }
+
+    async function triggerReminderIfDue(task) {
+      const reminderAt = getReminderDateTime(task);
+      if (!reminderAt || reminderAt.getTime() > Date.now() || task.completed || task.reminderFired) return false;
+      try {
+        const claimed = await db.runTransaction(async tx => {
+          const ref = db.collection('planner_tasks').doc(task.id);
+          const snapshot = await tx.get(ref);
+          if (!snapshot.exists) return false;
+          const latest = { id: snapshot.id, ...snapshot.data() };
+          const latestReminderAt = getReminderDateTime(latest);
+          if (!latestReminderAt || latestReminderAt.getTime() > Date.now() || latest.completed || latest.reminderFired) {
+            return false;
+          }
+          tx.update(ref, {
+            reminderFired: true,
+            reminderFiredAt: new Date().toISOString()
+          });
+          return true;
+        });
+
+        if (!claimed) return false;
+        showReminderAlert(task);
+        return true;
+      } catch (e) {
+        console.error('Reminder error:', e);
+        return false;
+      }
+    }
+
+    async function checkDueReminders() {
+      const dueTasks = State.tasks.filter(task => !task.completed && !task.reminderFired && getReminderDateTime(task));
+      for (const task of dueTasks) {
+        await triggerReminderIfDue(task);
+      }
+    }
+
+    function startReminderPolling() {
+      if (reminderTimer) clearInterval(reminderTimer);
+      checkDueReminders();
+      reminderTimer = setInterval(checkDueReminders, REMINDER_POLL_INTERVAL_MS);
     }
 
     /* ───────────── Category Management ───────────── */
     function refreshCategoryDropdowns() {
       const cats = State.categories;
-      const workCats = cats.filter(c => (c.group || 'work') === 'work');
-      const pjsCats = cats.filter(c => c.group === 'pjs');
-      const homeCats = cats.filter(c => c.group === 'home');
+      const workCats = cats.filter(c => normalizeCategoryGroup(c.group || 'work') === 'work');
 
       const buildOptions = (includeAll) => {
         let html = includeAll ? '<option value="">All Categories</option>' : '';
         if (workCats.length) {
           html += '<optgroup label="VCHRI">';
           workCats.forEach(c => {
-            html += '<option value="' + escapeHtml(c.id) + '">' + c.icon + ' ' + escapeHtml(c.name) + '</option>';
-          });
-          html += '</optgroup>';
-        }
-        if (pjsCats.length) {
-          html += '<optgroup label="PJS Collectibles">';
-          pjsCats.forEach(c => {
-            html += '<option value="' + escapeHtml(c.id) + '">' + c.icon + ' ' + escapeHtml(c.name) + '</option>';
-          });
-          html += '</optgroup>';
-        }
-        if (homeCats.length) {
-          html += '<optgroup label="Home">';
-          homeCats.forEach(c => {
             html += '<option value="' + escapeHtml(c.id) + '">' + c.icon + ' ' + escapeHtml(c.name) + '</option>';
           });
           html += '</optgroup>';
@@ -1708,7 +2056,7 @@
     function renderCategoryList() {
       const listEl = document.getElementById('category-list');
       listEl.innerHTML = State.categories.map(c => {
-        const grp = c.group || 'work';
+        const grp = normalizeCategoryGroup(c.group || 'work');
         return '<div class="category-item">' +
           '<span class="category-item-color" style="background:' + c.color + '"></span>' +
           '<span class="category-item-icon">' + c.icon + '</span>' +
@@ -1770,11 +2118,17 @@
 
     function filterTasks(tasks) {
       return tasks.filter(t => {
-        if (State.searchQuery && !t.text.toLowerCase().includes(State.searchQuery.toLowerCase())) return false;
+        if (State.searchQuery) {
+          const query = State.searchQuery.toLowerCase();
+          const haystacks = [t.text || '', t.notes || ''].map(value => value.toLowerCase());
+          if (!haystacks.some(value => value.includes(query))) return false;
+        }
         if (State.filterPriority && t.priority !== State.filterPriority) return false;
         if (State.filterCategory && t.category !== State.filterCategory) return false;
         if (State.filterStatus === 'active' && t.completed) return false;
         if (State.filterStatus === 'completed' && !t.completed) return false;
+        if (State.filterNotes === 'with-notes' && !getTaskNotes(t)) return false;
+        if (State.filterNotes === 'without-notes' && getTaskNotes(t)) return false;
         if (State.filterTag) {
           const tags = extractHashtags(t.text);
           if (!tags.includes(State.filterTag.toLowerCase())) return false;
@@ -1793,6 +2147,11 @@
       // Extract hashtags and clean text
       const hashtags = extractHashtags(task.text);
       const cleanText = stripHashtags(task.text);
+      const noteText = getTaskNotes(task);
+      const hasNotes = !!noteText;
+      const isNotesExpanded = !!State.expandedNotes[task.id];
+      const isEditingNote = State.editingNoteId === task.id;
+      const noteDraft = isEditingNote ? (State.noteDrafts[task.id] ?? noteText) : noteText;
 
       let catBadge = '';
       if (cat) {
@@ -1811,7 +2170,7 @@
         const rLabel = task.reminderDate === getTodayString()
           ? '🔔 ' + formatTime(task.reminderTime)
           : '🔔 ' + formatDate(task.reminderDate);
-        reminderBadge = '<span class="reminder-badge">' + rLabel + '</span>';
+        reminderBadge = '<span class="reminder-badge" title="Browser reminder while this tab is open">' + rLabel + '</span>';
       }
 
       let carriedBadge = '';
@@ -1829,38 +2188,68 @@
         ).join('');
       }
 
+      let noteBadge = '';
+      let notePreviewHtml = '';
+      let noteFullHtml = '';
+      let noteControlsHtml = '';
+      if (hasNotes || isEditingNote) {
+        noteBadge = '<span class="note-badge">📝 Notes</span>';
+        if (isEditingNote) {
+          noteFullHtml = '<textarea class="task-note-editor" data-id="' + task.id + '" placeholder="Add working notes...">' + escapeHtml(noteDraft) + '</textarea>' +
+            '<div class="task-note-editor-actions">' +
+              '<button class="btn btn-primary task-note-save" type="button" data-id="' + task.id + '">Save note</button>' +
+              '<button class="btn btn-secondary task-note-cancel" type="button" data-id="' + task.id + '">Cancel</button>' +
+            '</div>';
+          noteControlsHtml = '<button class="task-note-btn subtle task-note-copy" type="button" data-id="' + task.id + '">Copy note</button>';
+        } else if (isNotesExpanded) {
+          noteFullHtml = '<div class="task-note-full">' + renderNoteHtml(noteText) + '</div>';
+          noteControlsHtml =
+            '<button class="task-note-toggle" type="button" data-id="' + task.id + '" aria-expanded="true">Hide notes</button>' +
+            '<button class="task-note-btn" type="button" data-id="' + task.id + '" data-note-action="edit">Edit note</button>' +
+            '<button class="task-note-btn subtle task-note-copy" type="button" data-id="' + task.id + '">Copy note</button>';
+        } else {
+          notePreviewHtml = '<div class="task-note-preview">' + escapeHtml(getNotePreview(noteText)) + '</div>';
+          noteControlsHtml =
+            '<button class="task-note-toggle" type="button" data-id="' + task.id + '" aria-expanded="false">Show notes</button>' +
+            '<button class="task-note-btn subtle" type="button" data-id="' + task.id + '" data-note-action="edit">Edit note</button>';
+        }
+      } else {
+        noteControlsHtml = '<button class="task-note-btn subtle" type="button" data-id="' + task.id + '" data-note-action="edit">Add note</button>';
+      }
+
       const moveBtn = isCarried
-        ? '<button class="move-today-btn" data-id="' + task.id + '" title="Move to today">➡</button>'
+        ? '<button class="move-today-btn" type="button" data-id="' + task.id + '" title="Move to today" aria-label="Move task to today">➡</button>'
         : '';
 
       return '<div class="task-card' + priorityClass + completedClass + carriedClass + '" data-task-id="' + task.id + '" draggable="true">' +
         '<span class="drag-handle" title="Drag to reorder">☰</span>' +
         '<div class="reorder-buttons">' +
-          '<button class="reorder-btn" data-dir="up" data-id="' + task.id + '">▲</button>' +
-          '<button class="reorder-btn" data-dir="down" data-id="' + task.id + '">▼</button>' +
+          '<button class="reorder-btn" type="button" data-dir="up" data-id="' + task.id + '" aria-label="Move task up">▲</button>' +
+          '<button class="reorder-btn" type="button" data-dir="down" data-id="' + task.id + '" aria-label="Move task down">▼</button>' +
         '</div>' +
-        '<div class="task-checkbox" data-id="' + task.id + '"></div>' +
+        '<button class="task-checkbox" type="button" data-id="' + task.id + '" aria-pressed="' + task.completed + '" aria-label="' + (task.completed ? 'Mark task incomplete' : 'Mark task complete') + '"></button>' +
         '<div class="task-content">' +
           '<div class="task-text">' + escapeHtml(cleanText || task.text) + '</div>' +
           '<div class="task-meta">' +
             '<span class="priority-pill ' + task.priority + '">' +
               (task.priority === 'high' ? '! ' : '') + task.priority.charAt(0).toUpperCase() + task.priority.slice(1) +
             '</span>' +
-            catBadge + hashtagHtml + timeHtml + reminderBadge + carriedBadge +
+            catBadge + noteBadge + hashtagHtml + timeHtml + reminderBadge + carriedBadge +
           '</div>' +
+          notePreviewHtml +
+          noteFullHtml +
+          '<div class="task-note-controls">' + noteControlsHtml + '</div>' +
         '</div>' +
         '<div class="task-actions">' +
           moveBtn +
-          '<button class="task-action-btn edit" data-id="' + task.id + '" title="Edit">✎</button>' +
-          '<button class="task-action-btn delete" data-id="' + task.id + '" title="Delete">✖</button>' +
+          '<button class="task-action-btn edit" type="button" data-id="' + task.id + '" title="Edit" aria-label="Edit task">✎</button>' +
+          '<button class="task-action-btn delete" type="button" data-id="' + task.id + '" title="Delete" aria-label="Delete task">✖</button>' +
         '</div>' +
       '</div>';
     }
 
     function renderGroupedTasks(tasks, isCarried) {
       const workTasks = tasks.filter(t => getCategoryGroup(t.category) === 'work');
-      const pjsTasks = tasks.filter(t => getCategoryGroup(t.category) === 'pjs');
-      const homeTasks = tasks.filter(t => getCategoryGroup(t.category) === 'home');
       const sortFn = (a, b) => {
         if (a.completed !== b.completed) return a.completed ? 1 : -1;
         return (a.sortOrder || 0) - (b.sortOrder || 0);
@@ -1872,42 +2261,14 @@
         const workArrow = State.workExpanded ? ' expanded' : '';
         const workBody = State.workExpanded ? '' : ' collapsed';
         html += '<div class="group-section">' +
-          '<div class="group-header work" data-group-toggle="work' + suffix + '">' +
+          '<button class="group-header work" type="button" data-group-toggle="work' + suffix + '" aria-expanded="' + State.workExpanded + '">' +
             '<span class="group-header-arrow' + workArrow + '">▶</span>' +
             '🏥 VCHRI <span class="group-header-count">' + workTasks.length + '</span>' +
-          '</div>' +
+          '</button>' +
           '<div class="group-body' + workBody + '" data-group-body="work' + suffix + '">' +
             [...workTasks].sort(sortFn).map(t => buildTaskCardHtml(t, isCarried)).join('') +
           '</div>' +
-        '</div>';
-      }
-
-      if (pjsTasks.length) {
-        const pjsArrow = State.pjsExpanded ? ' expanded' : '';
-        const pjsBody = State.pjsExpanded ? '' : ' collapsed';
-        html += '<div class="group-section">' +
-          '<div class="group-header pjs" data-group-toggle="pjs' + suffix + '">' +
-            '<span class="group-header-arrow' + pjsArrow + '">▶</span>' +
-            '🎴 PJS Collectibles <span class="group-header-count">' + pjsTasks.length + '</span>' +
-          '</div>' +
-          '<div class="group-body' + pjsBody + '" data-group-body="pjs' + suffix + '">' +
-            [...pjsTasks].sort(sortFn).map(t => buildTaskCardHtml(t, isCarried)).join('') +
-          '</div>' +
-        '</div>';
-      }
-
-      if (homeTasks.length) {
-        const homeArrow = State.homeExpanded ? ' expanded' : '';
-        const homeBody = State.homeExpanded ? '' : ' collapsed';
-        html += '<div class="group-section">' +
-          '<div class="group-header home" data-group-toggle="home' + suffix + '">' +
-            '<span class="group-header-arrow' + homeArrow + '">▶</span>' +
-            '🏠 Home <span class="group-header-count">' + homeTasks.length + '</span>' +
-          '</div>' +
-          '<div class="group-body' + homeBody + '" data-group-body="home' + suffix + '">' +
-            [...homeTasks].sort(sortFn).map(t => buildTaskCardHtml(t, isCarried)).join('') +
-          '</div>' +
-        '</div>';
+          '</div>';
       }
 
       return html;
@@ -1934,11 +2295,11 @@
         const bodyClass = State.carriedExpanded ? '' : ' collapsed';
 
         html += '<div class="carried-section">' +
-          '<div class="carried-header" id="carried-header">' +
+          '<button class="carried-header" id="carried-header" type="button" aria-expanded="' + State.carriedExpanded + '">' +
             '<span class="carried-header-arrow' + arrowClass + '">▶</span>' +
             'Carried Over ' +
             '<span class="carried-header-count">' + carriedTasks.length + '</span>' +
-          '</div>' +
+          '</button>' +
           '<div class="carried-body' + bodyClass + '" id="carried-body">' +
             renderGroupedTasks(carriedTasks, true) +
           '</div>' +
@@ -1957,6 +2318,7 @@
           State.carriedExpanded = !State.carriedExpanded;
           const arrow = carriedHeader.querySelector('.carried-header-arrow');
           const body = document.getElementById('carried-body');
+          carriedHeader.setAttribute('aria-expanded', String(State.carriedExpanded));
           if (arrow) arrow.classList.toggle('expanded', State.carriedExpanded);
           if (body) body.classList.toggle('collapsed', !State.carriedExpanded);
         });
@@ -1966,11 +2328,12 @@
       taskList.querySelectorAll('[data-group-toggle]').forEach(header => {
         header.addEventListener('click', () => {
           const key = header.dataset.groupToggle;
-          const group = key.startsWith('work') ? 'work' : key.startsWith('pjs') ? 'pjs' : 'home';
+          const group = 'work';
           const stateKey = group + 'Expanded';
           State[stateKey] = !State[stateKey];
           taskList.querySelectorAll('[data-group-toggle^="' + group + '"]').forEach(h => {
             const arrow = h.querySelector('.group-header-arrow');
+            h.setAttribute('aria-expanded', String(State[stateKey]));
             if (arrow) arrow.classList.toggle('expanded', State[stateKey]);
           });
           taskList.querySelectorAll('[data-group-body^="' + group + '"]').forEach(b => {
@@ -1989,6 +2352,14 @@
         card.addEventListener('drop', e => handleDrop(e, id));
         card.addEventListener('dragend', handleDragEnd);
       });
+
+      if (State.editingNoteId) {
+        const editor = taskList.querySelector('.task-note-editor[data-id="' + State.editingNoteId + '"]');
+        if (editor) {
+          editor.focus();
+          editor.setSelectionRange(editor.value.length, editor.value.length);
+        }
+      }
     }
 
     /* ───────────── Drag and Drop ───────────── */
@@ -2080,6 +2451,7 @@
 
     /* ───────────── Edit Modal ───────────── */
     function openEditModal(task) {
+      rememberFocus();
       State.editingId = task.id;
       document.getElementById('edit-modal-title').textContent = 'Edit Task';
       document.getElementById('edit-text').value = task.text;
@@ -2101,6 +2473,7 @@
     function closeEditModal() {
       document.getElementById('edit-modal').classList.remove('visible');
       State.editingId = null;
+      restoreFocus();
     }
 
     async function saveEdit() {
@@ -2110,6 +2483,15 @@
       const reminderEnabled = document.getElementById('edit-reminder-toggle').checked;
       const reminderDate = reminderEnabled ? document.getElementById('edit-reminder-date').value : '';
       const reminderTime = reminderEnabled ? document.getElementById('edit-reminder-time').value : '';
+
+      if (reminderEnabled && reminderDate && reminderTime) {
+        const permission = await requestNotificationPermissionIfNeeded();
+        if (permission === 'denied') {
+          showToast('Notifications are blocked. Reminders will show inside the planner while this tab stays open.');
+        } else if (permission === 'unsupported') {
+          showToast('This browser does not support notifications. Reminders will show inside the planner while this tab stays open.');
+        }
+      }
 
       const existing = State.tasks.find(t => t.id === State.editingId);
       const reminderChanged = existing && (existing.reminderDate !== reminderDate || existing.reminderTime !== reminderTime);
@@ -2132,6 +2514,7 @@
     let confirmCallback = null;
 
     function showConfirm(title, message, callback, confirmText = 'Delete', isDanger = true) {
+      rememberFocus();
       document.getElementById('confirm-title').textContent = title;
       document.getElementById('confirm-message').textContent = message;
       const okBtn = document.getElementById('confirm-ok');
@@ -2139,22 +2522,27 @@
       okBtn.className = isDanger ? 'btn btn-danger' : 'btn btn-primary';
       confirmCallback = callback;
       document.getElementById('confirm-modal').classList.add('visible');
+      okBtn.focus();
     }
 
     function closeConfirm() {
       document.getElementById('confirm-modal').classList.remove('visible');
       confirmCallback = null;
+      restoreFocus();
     }
 
     /* ───────────── Categories Modal ───────────── */
     function openCategoriesModal() {
+      rememberFocus();
       renderCategoryList();
       document.getElementById('categories-modal').classList.add('visible');
+      document.getElementById('new-cat-name').focus();
     }
 
     function closeCategoriesModal() {
       document.getElementById('categories-modal').classList.remove('visible');
       refreshCategoryDropdowns();
+      restoreFocus();
     }
 
     /* ───────────── Export / Import ───────────── */
@@ -2198,7 +2586,6 @@
               State.categories = data.categories;
               await saveCategories();
             }
-            await loadTasks();
             showToast('Import complete!');
           }, 'Continue', false);
         } catch (err) {
@@ -2211,8 +2598,13 @@
     /* ───────────── Initialize ───────────── */
     document.addEventListener('DOMContentLoaded', () => {
       loadTheme();
-      loadCategories().then(() => loadTasks());
-      setupRealtimeSync();
+      loadCategories().then(() => {
+        setupRealtimeSync();
+        startReminderPolling();
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') checkDueReminders();
+      });
 
       // Date navigation
       document.getElementById('date-prev').addEventListener('click', () => {
@@ -2263,6 +2655,14 @@
       document.getElementById('filter-priority').addEventListener('change', e => { State.filterPriority = e.target.value; render(); });
       document.getElementById('filter-category').addEventListener('change', e => { State.filterCategory = e.target.value; render(); });
       document.getElementById('filter-status').addEventListener('change', e => { State.filterStatus = e.target.value; render(); });
+      document.getElementById('filter-notes').addEventListener('change', e => { State.filterNotes = e.target.value; render(); });
+
+      document.getElementById('task-list').addEventListener('input', e => {
+        const noteEditor = e.target.closest('.task-note-editor');
+        if (noteEditor) {
+          State.noteDrafts[noteEditor.dataset.id] = noteEditor.value;
+        }
+      });
 
       // Task list delegation
       document.getElementById('task-list').addEventListener('click', async e => {
@@ -2281,7 +2681,8 @@
             await updateTask(task.id, { completed: nowCompleted, completedAt: nowCompleted ? new Date().toISOString() : null });
             if (nowCompleted) {
               const allTasks = State.tasks.filter(t => t.date === State.selectedDate);
-              if (allTasks.length > 0 && allTasks.every(t => t.completed)) {
+              const willAllBeCompleted = allTasks.length > 0 && allTasks.every(t => t.id === task.id ? nowCompleted : t.completed);
+              if (willAllBeCompleted) {
                 launchConfetti();
               }
             }
@@ -2300,6 +2701,42 @@
         if (editBtn) {
           const task = State.tasks.find(t => t.id === editBtn.dataset.id);
           if (task) openEditModal(task);
+          return;
+        }
+
+        const noteToggle = e.target.closest('.task-note-toggle');
+        if (noteToggle) {
+          const id = noteToggle.dataset.id;
+          State.expandedNotes[id] = !State.expandedNotes[id];
+          render();
+          return;
+        }
+
+        const noteActionBtn = e.target.closest('[data-note-action="edit"]');
+        if (noteActionBtn) {
+          const task = State.tasks.find(t => t.id === noteActionBtn.dataset.id);
+          if (task) beginInlineNoteEdit(task);
+          return;
+        }
+
+        const noteCopy = e.target.closest('.task-note-copy');
+        if (noteCopy) {
+          const text = State.editingNoteId === noteCopy.dataset.id
+            ? (State.noteDrafts[noteCopy.dataset.id] || '')
+            : getTaskNotes(State.tasks.find(t => t.id === noteCopy.dataset.id) || {});
+          await copyTextToClipboard(text);
+          return;
+        }
+
+        const noteSave = e.target.closest('.task-note-save');
+        if (noteSave) {
+          await saveInlineNoteEdit(noteSave.dataset.id);
+          return;
+        }
+
+        const noteCancel = e.target.closest('.task-note-cancel');
+        if (noteCancel) {
+          cancelInlineNoteEdit(noteCancel.dataset.id);
           return;
         }
 
@@ -2374,17 +2811,12 @@
       document.getElementById('categories-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeCategoriesModal(); });
       
       document.getElementById('categories-reset').addEventListener('click', async () => {
-        showConfirm('Reset Categories', 'This will delete all your custom categories and restore the defaults (VCHRI, Meetings, PJS Collectibles, Home). Your tasks will keep their category IDs but may need to be reassigned. Continue?', async () => {
+        showConfirm('Reset Categories', 'This will delete all your custom categories and restore the default VCHRI category. Your tasks will keep their category IDs but may need to be reassigned. Continue?', async () => {
           try {
             setSyncStatus('syncing');
-            // Delete all existing categories from Firebase
-            const snapshot = await db.collection('planner_categories').get();
-            const batch = db.batch();
-            snapshot.docs.forEach(doc => batch.delete(doc.ref));
-            await batch.commit();
-            // Reset to defaults
             State.categories = [...DEFAULT_CATEGORIES];
             await saveCategories();
+            setSyncStatus('synced');
             renderCategoryList();
             refreshCategoryDropdowns();
             showToast('Categories reset to defaults!');
@@ -2400,7 +2832,7 @@
         const icon = document.getElementById('new-cat-icon').value || '📌';
         const name = document.getElementById('new-cat-name').value.trim();
         const color = document.getElementById('new-cat-color').value;
-        const group = document.getElementById('new-cat-group').value;
+        const group = 'work';
         if (!name) return;
         const id = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         if (State.categories.some(c => c.id === id)) {
