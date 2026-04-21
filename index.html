@@ -784,8 +784,32 @@
 
     .task-note-paragraph + .task-note-paragraph,
     .task-note-list + .task-note-paragraph,
-    .task-note-paragraph + .task-note-list {
+    .task-note-paragraph + .task-note-list,
+    .task-note-heading + .task-note-paragraph,
+    .task-note-heading + .task-note-list,
+    .task-note-highlight + .task-note-paragraph,
+    .task-note-highlight + .task-note-list {
       margin-top: var(--space-sm);
+    }
+
+    .task-note-heading {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text);
+    }
+
+    .task-note-highlight {
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      color: #92400e;
+      font-weight: 600;
+    }
+    [data-theme="dark"] .task-note-highlight {
+      color: #fcd34d;
     }
 
     .task-note-paragraph a,
@@ -811,9 +835,20 @@
     .task-note-item.checklist {
       list-style: none;
       margin-left: -18px;
+    }
+
+    .task-note-check-toggle {
+      width: 100%;
       display: flex;
       align-items: flex-start;
       gap: 8px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
     }
 
     .task-note-check {
@@ -834,6 +869,48 @@
     .task-note-item.checklist.checked .task-note-check {
       background: rgba(99, 102, 241, 0.14);
       border-color: rgba(99, 102, 241, 0.35);
+    }
+
+    .task-note-check-label {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .task-note-check-toggle:hover .task-note-check {
+      border-color: var(--color-primary);
+    }
+
+    .note-updated {
+      font-size: 0.6875rem;
+      color: var(--color-text-muted);
+      font-weight: 600;
+    }
+
+    .note-template-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: var(--space-sm);
+    }
+
+    .note-template-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(99, 102, 241, 0.16);
+      background: rgba(99, 102, 241, 0.05);
+      color: var(--color-primary);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .note-template-btn:hover {
+      background: rgba(99, 102, 241, 0.12);
+      border-color: rgba(99, 102, 241, 0.28);
+      color: var(--color-primary-hover);
     }
 
     .task-note-controls {
@@ -1827,7 +1904,12 @@
         <div class="form-group">
           <label class="form-label" for="edit-notes">Notes</label>
           <textarea class="form-textarea" id="edit-notes" placeholder="Add notes..."></textarea>
-          <p class="form-help">Use notes for context, links, follow-ups, and running updates. Notes now show on the task card and are searchable.</p>
+          <div class="note-template-group">
+            <button class="note-template-btn" type="button" data-note-template="meeting">Meeting notes</button>
+            <button class="note-template-btn" type="button" data-note-template="followup">Follow-up list</button>
+            <button class="note-template-btn" type="button" data-note-template="study">Study / task log</button>
+          </div>
+          <p class="form-help">Use notes for context, links, follow-ups, and running updates. Start a line with <code>!!</code> to highlight it. Checklist lines like <code>- [ ]</code> can be toggled on the task card.</p>
         </div>
         <div class="form-group">
           <div class="reminder-section">
@@ -1906,6 +1988,11 @@
       weekdays: 'Weekdays',
       weekly: 'Weekly',
       monthly: 'Monthly'
+    };
+    const NOTE_TEMPLATES = {
+      meeting: '## Meeting\nAttendees:\n- \nAgenda:\n- \nNotes:\n- \nActions:\n- [ ] \n!! Key decision:',
+      followup: '## Follow-up\nContext:\n- \nNext steps:\n- [ ] \nWaiting on:\n- \nDeadline:\n- ',
+      study: '## Study / Task Log\nGoal:\n- \nProgress:\n- \nQuestions:\n- [ ] \n!! Next focus:'
     };
 
     /* ───────────── Helpers ───────────── */
@@ -2028,11 +2115,90 @@
       return preview.length > 180 ? preview.slice(0, 177).trimEnd() + '...' : preview;
     }
 
+    function formatRelativeTime(timestamp) {
+      if (!timestamp) return '';
+      const date = new Date(timestamp);
+      if (Number.isNaN(date.getTime())) return '';
+      const diffMs = date.getTime() - Date.now();
+      const absMs = Math.abs(diffMs);
+      const minute = 60 * 1000;
+      const hour = 60 * minute;
+      const day = 24 * hour;
+      const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+
+      if (absMs < hour) return rtf.format(Math.round(diffMs / minute), 'minute');
+      if (absMs < day) return rtf.format(Math.round(diffMs / hour), 'hour');
+      if (absMs < day * 14) return rtf.format(Math.round(diffMs / day), 'day');
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function mergeNoteTemplate(current, templateKey) {
+      const template = NOTE_TEMPLATES[templateKey];
+      if (!template) return current || '';
+      const trimmed = (current || '').trim();
+      return trimmed ? trimmed + '\n\n' + template : template;
+    }
+
+    function getNotesUpdatedAt(task, nextNotes) {
+      const normalizedNotes = (nextNotes || '').trim();
+      if (!normalizedNotes) return null;
+      return task && task.notes === normalizedNotes
+        ? (task.notesUpdatedAt || task.updatedAt || getCurrentTimestamp())
+        : getCurrentTimestamp();
+    }
+
+    function applyTemplateToModal(templateKey) {
+      const textarea = document.getElementById('edit-notes');
+      textarea.value = mergeNoteTemplate(textarea.value, templateKey);
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      showToast('Template inserted');
+    }
+
+    function applyTemplateToInline(id, templateKey) {
+      const current = State.noteDrafts[id] || '';
+      const next = mergeNoteTemplate(current, templateKey);
+      State.noteDrafts[id] = next;
+      const editor = document.querySelector('.task-note-editor[data-id="' + id + '"]');
+      if (editor) {
+        editor.value = next;
+        editor.focus();
+        editor.setSelectionRange(editor.value.length, editor.value.length);
+      }
+      showToast('Template inserted');
+    }
+
+    async function toggleNoteChecklist(taskId, lineIndex) {
+      const task = State.tasks.find(item => item.id === taskId);
+      if (!task) return;
+      const lines = (task.notes || '').split(/\r?\n/);
+      const targetLine = lines[lineIndex];
+      if (typeof targetLine !== 'string') return;
+
+      const toggled = targetLine.replace(/^(\s*[-*]\s+\[)([ xX])(\]\s+.*)$/, (_, open, value, close) => {
+        const next = value.toLowerCase() === 'x' ? ' ' : 'x';
+        return open + next + close;
+      });
+      if (toggled === targetLine) return;
+
+      lines[lineIndex] = toggled;
+      const nextNotes = lines.join('\n');
+      const notesUpdatedAt = getCurrentTimestamp();
+      await updateTask(taskId, {
+        notes: nextNotes,
+        notesUpdatedAt
+      });
+      task.notes = nextNotes;
+      task.notesUpdatedAt = notesUpdatedAt;
+      render();
+    }
+
     function linkifyText(text) {
       return escapeHtml(text).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
     }
 
-    function renderNoteHtml(noteText) {
+    function renderNoteHtml(task) {
+      const noteText = getTaskNotes(task);
       const lines = noteText.split(/\r?\n/);
       let html = '';
       let listItems = [];
@@ -2043,10 +2209,25 @@
         listItems = [];
       };
 
-      for (const rawLine of lines) {
+      for (let index = 0; index < lines.length; index++) {
+        const rawLine = lines[index];
         const line = rawLine.trimEnd();
         if (!line.trim()) {
           flushList();
+          continue;
+        }
+
+        const headingMatch = line.match(/^\s*##+\s+(.*)$/);
+        if (headingMatch) {
+          flushList();
+          html += '<p class="task-note-heading">' + linkifyText(headingMatch[1]) + '</p>';
+          continue;
+        }
+
+        const highlightMatch = line.match(/^\s*!!\s+(.*)$/);
+        if (highlightMatch) {
+          flushList();
+          html += '<p class="task-note-highlight">' + linkifyText(highlightMatch[1]) + '</p>';
           continue;
         }
 
@@ -2055,8 +2236,10 @@
           const checked = checklistMatch[1].toLowerCase() === 'x';
           listItems.push(
             '<li class="task-note-item checklist' + (checked ? ' checked' : '') + '">' +
-              '<span class="task-note-check">' + (checked ? '✓' : '') + '</span>' +
-              '<span>' + linkifyText(checklistMatch[2]) + '</span>' +
+              '<button class="task-note-check-toggle" type="button" data-task-id="' + task.id + '" data-line-index="' + index + '" aria-pressed="' + checked + '">' +
+                '<span class="task-note-check">' + (checked ? '✓' : '') + '</span>' +
+                '<span class="task-note-check-label">' + linkifyText(checklistMatch[2]) + '</span>' +
+              '</button>' +
             '</li>'
           );
           continue;
@@ -2084,7 +2267,8 @@
         recurrence: task.recurrence || 'none',
         recurringSourceId: task.recurringSourceId || null,
         createdAt: task.createdAt || null,
-        updatedAt: task.updatedAt || task.createdAt || null
+        updatedAt: task.updatedAt || task.createdAt || null,
+        notesUpdatedAt: task.notesUpdatedAt || ((task.notes || '').trim() ? (task.updatedAt || task.createdAt || null) : null)
       };
     }
 
@@ -2181,9 +2365,14 @@
 
     async function saveInlineNoteEdit(id) {
       const draft = (State.noteDrafts[id] || '').trim();
-      await updateTask(id, { notes: draft });
       const task = State.tasks.find(item => item.id === id);
+      const notesUpdatedAt = getNotesUpdatedAt(task, draft);
+      await updateTask(id, {
+        notes: draft,
+        notesUpdatedAt
+      });
       if (task) task.notes = draft;
+      if (task) task.notesUpdatedAt = notesUpdatedAt;
       State.editingNoteId = null;
       delete State.noteDrafts[id];
       if (!draft) delete State.expandedNotes[id];
@@ -2325,7 +2514,8 @@
           reminderFired: false,
           pinned: !!task.pinned,
           recurrence: task.recurrence,
-          recurringSourceId: sourceId
+          recurringSourceId: sourceId,
+          notesUpdatedAt: task.notesUpdatedAt || null
         });
         showToast('Next recurring task added');
         return true;
@@ -2646,28 +2836,40 @@
       let notePreviewHtml = '';
       let noteFullHtml = '';
       let noteControlsHtml = '';
+      let noteTimestampHtml = '';
+      if (hasNotes && task.notesUpdatedAt) {
+        noteTimestampHtml = '<span class="note-updated">Updated ' + escapeHtml(formatRelativeTime(task.notesUpdatedAt)) + '</span>';
+      }
       if (hasNotes || isEditingNote) {
         noteBadge = '<span class="note-badge">📝 Notes</span>';
         if (isEditingNote) {
           noteFullHtml = '<textarea class="task-note-editor" data-id="' + task.id + '" placeholder="Add working notes...">' + escapeHtml(noteDraft) + '</textarea>' +
+            '<div class="note-template-group">' +
+              '<button class="note-template-btn" type="button" data-inline-template="' + task.id + '" data-note-template="meeting">Meeting notes</button>' +
+              '<button class="note-template-btn" type="button" data-inline-template="' + task.id + '" data-note-template="followup">Follow-up list</button>' +
+              '<button class="note-template-btn" type="button" data-inline-template="' + task.id + '" data-note-template="study">Study / task log</button>' +
+            '</div>' +
             '<div class="task-note-editor-actions">' +
               '<button class="btn btn-primary task-note-save" type="button" data-id="' + task.id + '">Save note</button>' +
               '<button class="btn btn-secondary task-note-cancel" type="button" data-id="' + task.id + '">Cancel</button>' +
             '</div>';
-          noteControlsHtml = '<button class="task-note-btn subtle task-note-copy" type="button" data-id="' + task.id + '">Copy note</button>';
+          noteControlsHtml = noteTimestampHtml + '<button class="task-note-btn subtle task-note-copy" type="button" data-id="' + task.id + '">Copy note</button>';
         } else if (isNotesExpanded) {
-          noteFullHtml = '<div class="task-note-full">' + renderNoteHtml(noteText) + '</div>';
+          noteFullHtml = '<div class="task-note-full">' + renderNoteHtml(task) + '</div>';
           noteControlsHtml =
+            noteTimestampHtml +
             '<button class="task-note-toggle" type="button" data-id="' + task.id + '" aria-expanded="true">Hide notes</button>' +
             '<button class="task-note-btn" type="button" data-id="' + task.id + '" data-note-action="edit">Edit note</button>' +
             '<button class="task-note-btn subtle task-note-copy" type="button" data-id="' + task.id + '">Copy note</button>';
         } else if (!isCompact) {
           notePreviewHtml = '<div class="task-note-preview">' + escapeHtml(getNotePreview(noteText)) + '</div>';
           noteControlsHtml =
+            noteTimestampHtml +
             '<button class="task-note-toggle" type="button" data-id="' + task.id + '" aria-expanded="false">Show notes</button>' +
             '<button class="task-note-btn subtle" type="button" data-id="' + task.id + '" data-note-action="edit">Edit note</button>';
         } else {
           noteControlsHtml =
+            noteTimestampHtml +
             '<button class="task-note-toggle" type="button" data-id="' + task.id + '" aria-expanded="false">Notes</button>' +
             '<button class="task-note-btn subtle" type="button" data-id="' + task.id + '" data-note-action="edit">Edit</button>';
         }
@@ -2969,6 +3171,8 @@
 
       const existing = State.tasks.find(t => t.id === State.editingId);
       const reminderChanged = existing && (existing.reminderDate !== reminderDate || existing.reminderTime !== reminderTime);
+      const nextNotes = document.getElementById('edit-notes').value.trim();
+      const notesUpdatedAt = getNotesUpdatedAt(existing, nextNotes);
 
       await updateTask(State.editingId, {
         text,
@@ -2977,7 +3181,8 @@
         pinned: document.getElementById('edit-pinned').checked,
         category: DEFAULT_CATEGORY_ID,
         dueTime: document.getElementById('edit-time').value || null,
-        notes: document.getElementById('edit-notes').value,
+        notes: nextNotes,
+        notesUpdatedAt,
         reminderDate: reminderDate || null,
         reminderTime: reminderTime || null,
         reminderFired: (reminderDate && reminderTime && reminderChanged) ? false : (existing ? existing.reminderFired : false)
@@ -3143,6 +3348,10 @@
       document.getElementById('filter-status').addEventListener('change', e => { State.filterStatus = e.target.value; render(); });
       document.getElementById('filter-notes').addEventListener('change', e => { State.filterNotes = e.target.value; render(); });
 
+      document.querySelectorAll('#edit-modal [data-note-template]').forEach(btn => {
+        btn.addEventListener('click', () => applyTemplateToModal(btn.dataset.noteTemplate));
+      });
+
       document.getElementById('task-list').addEventListener('input', e => {
         const noteEditor = e.target.closest('.task-note-editor');
         if (noteEditor) {
@@ -3209,6 +3418,18 @@
           const id = noteToggle.dataset.id;
           State.expandedNotes[id] = !State.expandedNotes[id];
           render();
+          return;
+        }
+
+        const inlineTemplateBtn = e.target.closest('[data-inline-template]');
+        if (inlineTemplateBtn) {
+          applyTemplateToInline(inlineTemplateBtn.dataset.inlineTemplate, inlineTemplateBtn.dataset.noteTemplate);
+          return;
+        }
+
+        const checklistToggle = e.target.closest('.task-note-check-toggle');
+        if (checklistToggle) {
+          await toggleNoteChecklist(checklistToggle.dataset.taskId, Number(checklistToggle.dataset.lineIndex));
           return;
         }
 
