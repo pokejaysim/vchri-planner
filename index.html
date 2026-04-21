@@ -724,17 +724,6 @@
     .priority-pill.medium { background: var(--priority-medium-bg); color: var(--priority-medium-text); }
     .priority-pill.low { background: var(--priority-low-bg); color: var(--priority-low-text); }
 
-    /* Category badge */
-    .category-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      padding: 1px 8px;
-      border-radius: var(--radius-pill);
-      font-size: 0.6875rem;
-      font-weight: 500;
-    }
-
     /* Due time */
     .task-due-time {
       font-size: var(--font-size-sm);
@@ -911,63 +900,6 @@
       gap: var(--space-md);
     }
     .form-row .form-group { flex: 1; }
-
-    /* ── Category Management ── */
-    .category-list {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-sm);
-      margin-bottom: var(--space-md);
-    }
-
-    .category-item {
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
-      padding: var(--space-sm) var(--space-md);
-      background: var(--color-bg);
-      border-radius: var(--radius-sm);
-    }
-
-    .category-item-color {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .category-item-icon {
-      font-size: 1rem;
-      flex-shrink: 0;
-    }
-
-    .category-item-name {
-      flex: 1;
-      font-size: var(--font-size-sm);
-      font-weight: 500;
-    }
-
-    .category-item-actions {
-      display: flex;
-      gap: var(--space-xs);
-    }
-
-    .add-category-row {
-      display: flex;
-      gap: var(--space-sm);
-      align-items: flex-end;
-    }
-
-    .add-category-row input,
-    .add-category-row select {
-      padding: 6px var(--space-sm);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm);
-      font-family: var(--font-family);
-      font-size: var(--font-size-sm);
-      color: var(--color-text);
-      background: var(--color-surface);
-    }
 
     /* ── Toast ── */
     .toast {
@@ -1397,7 +1329,6 @@
           <span class="sync-dot" id="sync-dot"></span>
           <span id="sync-text">Synced</span>
         </div>
-        <button class="btn-icon" id="btn-categories" type="button" title="Manage categories" aria-label="Manage categories">&#9881;</button>
         <button class="btn-icon" id="btn-import" type="button" title="Import data" aria-label="Import planner data">&#8593;</button>
         <button class="btn-icon" id="btn-export" type="button" title="Export data" aria-label="Export planner data">&#8595;</button>
         <button class="btn-icon" id="btn-theme" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">&#9790;</button>
@@ -1432,7 +1363,6 @@
         <option value="high">High</option>
         <option value="low">Low</option>
       </select>
-      <select id="add-category"></select>
       <input type="time" id="add-time">
       <button class="btn btn-primary" id="btn-add" type="button">+ Add</button>
     </div>
@@ -1445,9 +1375,6 @@
         <option value="high">High</option>
         <option value="medium">Medium</option>
         <option value="low">Low</option>
-      </select>
-      <select id="filter-category">
-        <option value="">All Categories</option>
       </select>
       <select id="filter-status">
         <option value="">All Tasks</option>
@@ -1493,10 +1420,6 @@
               <option value="medium">Medium</option>
               <option value="low">Low</option>
             </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="edit-category">Category</label>
-            <select class="form-select" id="edit-category"></select>
           </div>
         </div>
         <div class="form-group">
@@ -1554,29 +1477,6 @@
     </div>
   </div>
 
-  <!-- Manage Categories Modal -->
-  <div class="modal-overlay" id="categories-modal" role="dialog" aria-modal="true" aria-labelledby="categories-title">
-    <div class="modal">
-      <div class="modal-header">
-        <h2 class="modal-title" id="categories-title">Manage Categories</h2>
-        <button class="modal-close" id="categories-close" type="button" aria-label="Close categories dialog">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="category-list" id="category-list"></div>
-        <div class="add-category-row">
-          <input type="text" id="new-cat-icon" placeholder="Emoji" style="width: 50px; text-align: center;">
-          <input type="text" id="new-cat-name" placeholder="Category name" style="flex: 1;">
-          <input type="color" id="new-cat-color" value="#6366f1" style="width: 40px; height: 32px; padding: 2px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); cursor: pointer;">
-          <button class="btn btn-primary" id="btn-add-cat" type="button" style="padding: 6px 12px;">Add</button>
-        </div>
-      </div>
-      <div class="modal-footer" style="justify-content: space-between;">
-        <button class="btn btn-danger" id="categories-reset" type="button" style="font-size: 0.75rem;">Reset to Defaults</button>
-        <button class="btn btn-secondary" id="categories-done" type="button">Done</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Toast -->
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -1602,9 +1502,7 @@
     const THEME_KEY = 'dailyPlanner_theme';
     const REMINDER_POLL_INTERVAL_MS = 30000;
 
-    const DEFAULT_CATEGORIES = [
-      { id: 'vchri', name: 'VCHRI', color: '#3b82f6', icon: '🏥', group: 'work' }
-    ];
+    const DEFAULT_CATEGORY_ID = 'vchri';
 
     /* ───────────── Helpers ───────────── */
     function getTodayString() {
@@ -1711,16 +1609,11 @@
       return html;
     }
 
-    function normalizeCategoryGroup(group) {
-      return 'work';
-    }
-
-    function getCategoryGroup(catId) {
-      const cat = State.categories.find(c => c.id === catId);
-      if (!cat) return 'work';
-      // Legacy categories are folded into the single VCHRI bucket.
-      if (cat.group) return normalizeCategoryGroup(cat.group);
-      return 'work';
+    function normalizeTask(task) {
+      return {
+        ...task,
+        category: DEFAULT_CATEGORY_ID
+      };
     }
 
     /* ───────────── Toast ───────────── */
@@ -1831,10 +1724,8 @@
     const State = {
       selectedDate: getTodayString(),
       tasks: [],
-      categories: [...DEFAULT_CATEGORIES],
       searchQuery: '',
       filterPriority: '',
-      filterCategory: '',
       filterStatus: '',
       filterNotes: '',
       filterTag: '',
@@ -1884,33 +1775,6 @@
     }
 
     /* ───────────── Firebase Operations ───────────── */
-    async function loadCategories() {
-      try {
-        const doc = await db.collection('settings').doc('planner_categories').get();
-        if (doc.exists && doc.data().categories) {
-          State.categories = doc.data().categories.map(category => ({
-            ...category,
-            group: normalizeCategoryGroup(category.group || 'work')
-          }));
-        }
-        // Ensure the main VCHRI category always exists.
-        if (!State.categories.find(c => c.id === 'vchri')) {
-          State.categories.unshift(DEFAULT_CATEGORIES[0]);
-        }
-        refreshCategoryDropdowns();
-      } catch (e) {
-        console.error('Load categories error:', e);
-      }
-    }
-
-    async function saveCategories() {
-      try {
-        await db.collection('settings').doc('planner_categories').set({ categories: State.categories });
-      } catch (e) {
-        console.error('Save categories error:', e);
-      }
-    }
-
     async function addTask(task) {
       try {
         setSyncStatus('syncing');
@@ -1957,7 +1821,7 @@
     function setupRealtimeSync() {
       setSyncStatus('syncing');
       db.collection('planner_tasks').onSnapshot(snapshot => {
-        State.tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        State.tasks = snapshot.docs.map(doc => normalizeTask({ id: doc.id, ...doc.data() }));
         setSyncStatus('synced');
         document.getElementById('loading').style.display = 'none';
         render();
@@ -2031,47 +1895,9 @@
       reminderTimer = setInterval(checkDueReminders, REMINDER_POLL_INTERVAL_MS);
     }
 
-    /* ───────────── Category Management ───────────── */
-    function refreshCategoryDropdowns() {
-      const cats = State.categories;
-      const workCats = cats.filter(c => normalizeCategoryGroup(c.group || 'work') === 'work');
-
-      const buildOptions = (includeAll) => {
-        let html = includeAll ? '<option value="">All Categories</option>' : '';
-        if (workCats.length) {
-          html += '<optgroup label="VCHRI">';
-          workCats.forEach(c => {
-            html += '<option value="' + escapeHtml(c.id) + '">' + c.icon + ' ' + escapeHtml(c.name) + '</option>';
-          });
-          html += '</optgroup>';
-        }
-        return html;
-      };
-
-      document.getElementById('add-category').innerHTML = buildOptions(false);
-      document.getElementById('edit-category').innerHTML = buildOptions(false);
-      document.getElementById('filter-category').innerHTML = buildOptions(true);
-    }
-
-    function renderCategoryList() {
-      const listEl = document.getElementById('category-list');
-      listEl.innerHTML = State.categories.map(c => {
-        const grp = normalizeCategoryGroup(c.group || 'work');
-        return '<div class="category-item">' +
-          '<span class="category-item-color" style="background:' + c.color + '"></span>' +
-          '<span class="category-item-icon">' + c.icon + '</span>' +
-          '<span class="category-item-name">' + escapeHtml(c.name) + '</span>' +
-          '<span class="group-label ' + grp + '">' + grp + '</span>' +
-          '<div class="category-item-actions">' +
-          '<button class="task-action-btn delete btn-cat-delete" data-id="' + escapeHtml(c.id) + '">×</button>' +
-          '</div></div>';
-      }).join('');
-    }
-
     /* ───────────── Rendering ───────────── */
     function render() {
       renderDateNav();
-      refreshCategoryDropdowns();
       
       const todayTasks = State.tasks.filter(t => t.date === State.selectedDate);
       const carriedOver = State.selectedDate >= getTodayString()
@@ -2124,7 +1950,6 @@
           if (!haystacks.some(value => value.includes(query))) return false;
         }
         if (State.filterPriority && t.priority !== State.filterPriority) return false;
-        if (State.filterCategory && t.category !== State.filterCategory) return false;
         if (State.filterStatus === 'active' && t.completed) return false;
         if (State.filterStatus === 'completed' && !t.completed) return false;
         if (State.filterNotes === 'with-notes' && !getTaskNotes(t)) return false;
@@ -2138,7 +1963,6 @@
     }
 
     function buildTaskCardHtml(task, isCarried) {
-      const cat = State.categories.find(c => c.id === task.category);
       const overdueClass = isOverdue(task) ? ' overdue' : '';
       const completedClass = task.completed ? ' completed' : '';
       const priorityClass = ' priority-' + task.priority;
@@ -2152,12 +1976,6 @@
       const isNotesExpanded = !!State.expandedNotes[task.id];
       const isEditingNote = State.editingNoteId === task.id;
       const noteDraft = isEditingNote ? (State.noteDrafts[task.id] ?? noteText) : noteText;
-
-      let catBadge = '';
-      if (cat) {
-        catBadge = '<span class="category-badge" style="background:' + cat.color + '20;color:' + cat.color + '">' +
-          cat.icon + ' ' + escapeHtml(cat.name) + '</span>';
-      }
 
       let timeHtml = '';
       if (task.dueTime) {
@@ -2234,7 +2052,7 @@
             '<span class="priority-pill ' + task.priority + '">' +
               (task.priority === 'high' ? '! ' : '') + task.priority.charAt(0).toUpperCase() + task.priority.slice(1) +
             '</span>' +
-            catBadge + noteBadge + hashtagHtml + timeHtml + reminderBadge + carriedBadge +
+            noteBadge + hashtagHtml + timeHtml + reminderBadge + carriedBadge +
           '</div>' +
           notePreviewHtml +
           noteFullHtml +
@@ -2249,7 +2067,7 @@
     }
 
     function renderGroupedTasks(tasks, isCarried) {
-      const workTasks = tasks.filter(t => getCategoryGroup(t.category) === 'work');
+      const workTasks = tasks;
       const sortFn = (a, b) => {
         if (a.completed !== b.completed) return a.completed ? 1 : -1;
         return (a.sortOrder || 0) - (b.sortOrder || 0);
@@ -2456,7 +2274,6 @@
       document.getElementById('edit-modal-title').textContent = 'Edit Task';
       document.getElementById('edit-text').value = task.text;
       document.getElementById('edit-priority').value = task.priority;
-      document.getElementById('edit-category').value = task.category;
       document.getElementById('edit-time').value = task.dueTime || '';
       document.getElementById('edit-notes').value = task.notes || '';
 
@@ -2499,7 +2316,7 @@
       await updateTask(State.editingId, {
         text,
         priority: document.getElementById('edit-priority').value,
-        category: document.getElementById('edit-category').value,
+        category: DEFAULT_CATEGORY_ID,
         dueTime: document.getElementById('edit-time').value || null,
         notes: document.getElementById('edit-notes').value,
         reminderDate: reminderDate || null,
@@ -2531,27 +2348,12 @@
       restoreFocus();
     }
 
-    /* ───────────── Categories Modal ───────────── */
-    function openCategoriesModal() {
-      rememberFocus();
-      renderCategoryList();
-      document.getElementById('categories-modal').classList.add('visible');
-      document.getElementById('new-cat-name').focus();
-    }
-
-    function closeCategoriesModal() {
-      document.getElementById('categories-modal').classList.remove('visible');
-      refreshCategoryDropdowns();
-      restoreFocus();
-    }
-
     /* ───────────── Export / Import ───────────── */
     function exportData() {
       const data = {
         version: 1,
         exportedAt: new Date().toISOString(),
-        tasks: State.tasks,
-        categories: State.categories
+        tasks: State.tasks
       };
       const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
@@ -2579,12 +2381,8 @@
           showConfirm('Import Data', 'This will add ' + data.tasks.length + ' tasks to your planner.', async () => {
             setSyncStatus('syncing');
             for (const task of data.tasks) {
-              const { id, ...taskData } = task;
+              const { id, category, ...taskData } = task;
               await db.collection('planner_tasks').add(taskData);
-            }
-            if (data.categories) {
-              State.categories = data.categories;
-              await saveCategories();
             }
             showToast('Import complete!');
           }, 'Continue', false);
@@ -2598,10 +2396,8 @@
     /* ───────────── Initialize ───────────── */
     document.addEventListener('DOMContentLoaded', () => {
       loadTheme();
-      loadCategories().then(() => {
-        setupRealtimeSync();
-        startReminderPolling();
-      });
+      setupRealtimeSync();
+      startReminderPolling();
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') checkDueReminders();
       });
@@ -2633,7 +2429,7 @@
         await addTask({
           text,
           priority: document.getElementById('add-priority').value,
-          category: document.getElementById('add-category').value,
+          category: DEFAULT_CATEGORY_ID,
           dueTime: document.getElementById('add-time').value || null,
           date: State.selectedDate,
           completed: false,
@@ -2653,7 +2449,6 @@
       // Filters
       document.getElementById('filter-search').addEventListener('input', e => { State.searchQuery = e.target.value; render(); });
       document.getElementById('filter-priority').addEventListener('change', e => { State.filterPriority = e.target.value; render(); });
-      document.getElementById('filter-category').addEventListener('change', e => { State.filterCategory = e.target.value; render(); });
       document.getElementById('filter-status').addEventListener('change', e => { State.filterStatus = e.target.value; render(); });
       document.getElementById('filter-notes').addEventListener('change', e => { State.filterNotes = e.target.value; render(); });
 
@@ -2804,60 +2599,6 @@
       document.getElementById('confirm-ok').addEventListener('click', () => { if (confirmCallback) confirmCallback(); closeConfirm(); });
       document.getElementById('confirm-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeConfirm(); });
 
-      // Categories modal
-      document.getElementById('btn-categories').addEventListener('click', openCategoriesModal);
-      document.getElementById('categories-close').addEventListener('click', closeCategoriesModal);
-      document.getElementById('categories-done').addEventListener('click', closeCategoriesModal);
-      document.getElementById('categories-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeCategoriesModal(); });
-      
-      document.getElementById('categories-reset').addEventListener('click', async () => {
-        showConfirm('Reset Categories', 'This will delete all your custom categories and restore the default VCHRI category. Your tasks will keep their category IDs but may need to be reassigned. Continue?', async () => {
-          try {
-            setSyncStatus('syncing');
-            State.categories = [...DEFAULT_CATEGORIES];
-            await saveCategories();
-            setSyncStatus('synced');
-            renderCategoryList();
-            refreshCategoryDropdowns();
-            showToast('Categories reset to defaults!');
-          } catch (e) {
-            console.error('Reset categories error:', e);
-            showToast('Failed to reset categories');
-            setSyncStatus('offline');
-          }
-        }, 'Reset', true);
-      });
-
-      document.getElementById('btn-add-cat').addEventListener('click', async () => {
-        const icon = document.getElementById('new-cat-icon').value || '📌';
-        const name = document.getElementById('new-cat-name').value.trim();
-        const color = document.getElementById('new-cat-color').value;
-        const group = 'work';
-        if (!name) return;
-        const id = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        if (State.categories.some(c => c.id === id)) {
-          showToast('Category already exists');
-          return;
-        }
-        State.categories.push({ id, name, color, icon, group });
-        await saveCategories();
-        renderCategoryList();
-        document.getElementById('new-cat-name').value = '';
-        document.getElementById('new-cat-icon').value = '';
-        showToast('Category added');
-      });
-
-      document.getElementById('category-list').addEventListener('click', async e => {
-        const deleteBtn = e.target.closest('.btn-cat-delete');
-        if (deleteBtn) {
-          const id = deleteBtn.dataset.id;
-          State.categories = State.categories.filter(c => c.id !== id);
-          await saveCategories();
-          renderCategoryList();
-          showToast('Category deleted');
-        }
-      });
-
       // Theme & Export/Import
       document.getElementById('btn-theme').addEventListener('click', toggleTheme);
       document.getElementById('btn-export').addEventListener('click', exportData);
@@ -2871,7 +2612,6 @@
       document.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
           if (document.getElementById('confirm-modal').classList.contains('visible')) closeConfirm();
-          else if (document.getElementById('categories-modal').classList.contains('visible')) closeCategoriesModal();
           else if (document.getElementById('edit-modal').classList.contains('visible')) closeEditModal();
         }
       });
