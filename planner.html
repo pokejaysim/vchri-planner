@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Planner</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="loading" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Loading tasks...</div>
+  </div>
+
+  <div class="app-container">
+    <!-- Nav back to home -->
+    <nav class="planner-topnav">
+      <a href="index.html" class="planner-topnav-link">
+        <span style="font-size:16px;">✦</span> Home
+      </a>
+      <span class="planner-topnav-sep">/</span>
+      <span class="planner-topnav-current">Planner</span>
+    </nav>
+
+    <!-- Header -->
+    <header class="app-header">
+      <h1 class="app-title">Daily Planner</h1>
+      <div class="header-actions">
+        <div class="sync-status" aria-live="polite">
+          <span class="sync-dot" id="sync-dot"></span>
+          <span id="sync-text">Synced</span>
+        </div>
+        <button class="btn-icon btn-reminders" id="btn-reminders" type="button" title="Upcoming reminders" aria-label="View upcoming reminders" aria-expanded="false" aria-controls="reminder-panel">
+          &#128276;
+          <span class="btn-icon-badge" id="reminder-badge-count">0</span>
+        </button>
+        <button class="btn-icon" id="btn-import" type="button" title="Import data" aria-label="Import planner data">&#8593;</button>
+        <button class="btn-icon" id="btn-export" type="button" title="Export data" aria-label="Export planner data">&#8595;</button>
+        <button class="btn-icon" id="btn-theme" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">&#9790;</button>
+        <div class="reminder-panel" id="reminder-panel" hidden>
+          <div class="reminder-panel-header">
+            <div>
+              <div class="reminder-panel-title">Upcoming reminders</div>
+              <div class="reminder-panel-subtitle">Keep an eye on what is coming up next.</div>
+            </div>
+            <button class="reminder-panel-link" id="reminder-panel-due-soon" type="button">Due soon view</button>
+          </div>
+          <div class="reminder-panel-list" id="reminder-panel-list"></div>
+        </div>
+        <input type="file" id="import-file" accept=".json">
+      </div>
+    </header>
+
+    <!-- Date Navigation -->
+    <div class="date-nav">
+      <button class="date-nav-btn" id="date-prev" type="button" aria-label="Previous day">&#9664;</button>
+      <span class="date-nav-date" id="date-display"></span>
+      <button class="date-nav-btn" id="date-next" type="button" aria-label="Next day">&#9654;</button>
+      <button class="date-nav-today" id="date-today" type="button">Today</button>
+    </div>
+
+    <!-- Progress -->
+    <section class="progress-section">
+      <div class="progress-greeting" id="greeting"></div>
+      <div class="progress-text" id="progress-text"></div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
+      </div>
+      <div class="progress-stats" id="progress-stats"></div>
+      <div class="progress-celebration" id="celebration">All tasks done! Great work today!</div>
+    </section>
+
+    <div class="planner-toolbar">
+      <div class="toolbar-section toolbar-layout-section">
+        <span class="toolbar-label">Layout</span>
+        <div class="segmented-control" id="layout-toggle">
+          <button class="segment-btn" type="button" data-layout="list">List</button>
+          <button class="segment-btn" type="button" data-layout="board">Board</button>
+        </div>
+      </div>
+      <div class="toolbar-section toolbar-board-hint" id="board-layout-hint" hidden>
+        <span class="shortcut-hint">Board groups tasks into Top priorities, Today, Upcoming, and Done.</span>
+      </div>
+      <div class="toolbar-section" id="toolbar-view-section">
+        <span class="toolbar-label">View</span>
+        <div class="segmented-control" id="view-toggle">
+          <button class="segment-btn" type="button" data-view="today">Today <span class="segment-count" id="count-today">0</span></button>
+          <button class="segment-btn" type="button" data-view="due-soon">Due soon <span class="segment-count" id="count-due-soon">0</span></button>
+          <button class="segment-btn" type="button" data-view="upcoming">Upcoming <span class="segment-count" id="count-upcoming">0</span></button>
+          <button class="segment-btn" type="button" data-view="overdue">Overdue <span class="segment-count" id="count-overdue">0</span></button>
+          <button class="segment-btn" type="button" data-view="done">Done <span class="segment-count" id="count-done">0</span></button>
+        </div>
+      </div>
+      <div class="toolbar-section">
+        <span class="toolbar-label">Sort</span>
+        <select class="toolbar-select" id="sort-mode">
+          <option value="manual">Manual order</option>
+          <option value="recent">Recently edited</option>
+        </select>
+        <span class="toolbar-label">Density</span>
+        <div class="segmented-control" id="density-toggle">
+          <button class="segment-btn" type="button" data-density="expanded">Expanded</button>
+          <button class="segment-btn" type="button" data-density="compact">Compact</button>
+        </div>
+      </div>
+      <div class="toolbar-section">
+        <span class="shortcut-hint">Shortcuts: <kbd>n</kbd> new task <kbd>/</kbd> search <kbd>Esc</kbd> close</span>
+      </div>
+    </div>
+
+    <!-- Quick Add -->
+    <div class="quick-add">
+      <input type="text" class="quick-add-input" id="add-text" placeholder="What's on the agenda today?" autocomplete="off">
+      <select id="add-priority">
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+        <option value="low">Low</option>
+      </select>
+      <input type="time" id="add-time">
+      <button class="btn btn-primary" id="btn-add" type="button">+ Add</button>
+    </div>
+    <div class="quick-add-hint">Try natural entry like <code>Call Sarah tomorrow 3pm</code> or <code>Remind me to send the agenda Friday 9am</code>.</div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <input type="text" id="filter-search" placeholder="Search tasks...">
+      <select id="filter-priority">
+        <option value="">All Priorities</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+      <select id="filter-status">
+        <option value="">All Tasks</option>
+        <option value="active">Active</option>
+        <option value="completed">Completed</option>
+      </select>
+      <select id="filter-notes">
+        <option value="">All Notes</option>
+        <option value="with-notes">Has Notes</option>
+        <option value="without-notes">No Notes</option>
+      </select>
+      <span id="active-tag-container"></span>
+    </div>
+
+    <!-- Task List -->
+    <div class="task-list" id="task-list"></div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="empty-state" style="display: none;">
+      <div class="empty-state-icon">&#128221;</div>
+      <div class="empty-state-title">No tasks yet</div>
+      <div class="empty-state-text">Start planning your day by adding a task above!</div>
+    </div>
+  </div>
+
+  <!-- Edit Task Modal -->
+  <div class="modal-overlay" id="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="edit-modal-title">Edit Task</h2>
+        <button class="modal-close" id="edit-modal-close" type="button" aria-label="Close edit task dialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="edit-text">Task</label>
+          <input type="text" class="form-input" id="edit-text">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="edit-priority">Priority</label>
+            <select class="form-select" id="edit-priority">
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-recurrence">Repeats</label>
+            <select class="form-select" id="edit-recurrence">
+              <option value="none">Does not repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekdays">Weekdays</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-time">Due Time</label>
+          <input type="time" class="form-input" id="edit-time">
+        </div>
+        <div class="form-group">
+          <label class="reminder-toggle-row" for="edit-pinned">
+            <input type="checkbox" id="edit-pinned">
+            <span class="reminder-toggle-label">&#11088; Keep in Top priorities</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-notes">Notes</label>
+          <textarea class="form-textarea" id="edit-notes" placeholder="Add notes..."></textarea>
+          <div class="note-template-group">
+            <button class="note-template-btn" type="button" data-note-template="meeting">Meeting notes</button>
+            <button class="note-template-btn" type="button" data-note-template="followup">Follow-up list</button>
+            <button class="note-template-btn" type="button" data-note-template="study">Study / task log</button>
+          </div>
+          <p class="form-help">Use notes for context, links, follow-ups, and running updates. Start a line with <code>!!</code> to highlight it. Checklist lines like <code>- [ ]</code> can be toggled on the task card.</p>
+        </div>
+        <div class="form-group">
+          <div class="reminder-section">
+            <label class="reminder-toggle-row">
+              <input type="checkbox" id="edit-reminder-toggle">
+              <span class="reminder-toggle-label">&#128276; Send a browser reminder</span>
+            </label>
+            <div class="reminder-controls" id="reminder-controls">
+              <div class="reminder-presets">
+                <button type="button" class="reminder-preset-btn" data-preset="15m">In 15 min</button>
+                <button type="button" class="reminder-preset-btn" data-preset="1h">In 1 hour</button>
+                <button type="button" class="reminder-preset-btn" data-preset="tomorrow">Tomorrow 9 AM</button>
+                <button type="button" class="reminder-preset-btn" data-preset="7d">In 7 days</button>
+              </div>
+              <div class="reminder-fields">
+                <input type="date" id="edit-reminder-date" title="Reminder date" aria-label="Reminder date">
+                <input type="time" id="edit-reminder-time" title="Reminder time" aria-label="Reminder time">
+              </div>
+              <p class="form-help">Browser reminders fire while this tab is open. If notifications are blocked, the planner shows an in-app alert instead.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="edit-cancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="edit-save" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Modal -->
+  <div class="modal-overlay" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="confirm-title">Confirm</h2>
+        <button class="modal-close" id="confirm-close" type="button" aria-label="Close confirmation dialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-message"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="confirm-cancel" type="button">Cancel</button>
+        <button class="btn btn-danger" id="confirm-ok" type="button">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="reminder-alerts" id="reminder-alerts" aria-live="assertive" aria-label="Reminder alerts"></div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+  <script defer src="scripts/core.js"></script>
+  <script defer src="scripts/data.js"></script>
+  <script defer src="scripts/render.js"></script>
+  <script defer src="scripts/features.js"></script>
+  <script defer src="scripts/main.js"></script>
+
+  <!-- Deep-link support: #task=<id> opens that task after sync. -->
+  <script>
+  (function () {
+    function getTaskIdFromHash() {
+      var m = location.hash.match(/^#task=(.+)$/);
+      return m ? decodeURIComponent(m[1]) : null;
+    }
+    function tryOpenFromHash() {
+      var id = getTaskIdFromHash();
+      if (!id || typeof State === 'undefined' || !State.tasks) return false;
+      var task = State.tasks.find(function (t) { return t.id === id; });
+      if (task && typeof openEditModal === 'function') {
+        openEditModal(task);
+        history.replaceState(null, '', location.pathname + location.search);
+        return true;
+      }
+      return false;
+    }
+    window.addEventListener('load', function () {
+      if (!getTaskIdFromHash()) return;
+      var tries = 0;
+      var iv = setInterval(function () {
+        if (tryOpenFromHash() || tries++ > 40) clearInterval(iv);
+      }, 150);
+    });
+  })();
+  </script>
+</body>
+</html>

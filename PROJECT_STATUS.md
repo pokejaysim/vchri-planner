@@ -1,11 +1,11 @@
 # VCHRI Planner Status
 
-Last updated: April 20, 2026
-Latest pushed commit: `cdde603`
+Last updated: April 22, 2026
+Latest pushed commit before this redesign batch: `8676029`
 
 ## Current Product Shape
 
-The planner is now a single-bucket `VCHRI` task and notes tool.
+The planner is now a single-bucket `VCHRI` task and notes tool with a separate home dashboard and planner workspace.
 
 Current major features:
 - Daily planner with `Today`, `Due soon`, `Upcoming`, `Overdue`, and `Done` views
@@ -49,9 +49,13 @@ Reminder polling runs every 30 seconds, so alerts may be slightly late.
 ## File Map
 
 - [index.html](/tmp/vchri-planner-review/index.html:1)
-  Main page structure, toolbar, modals, reminder panel shell
+  Home dashboard landing page with quick add, focus tiles, reminders, and weekly stats
+- [planner.html](/tmp/vchri-planner-review/planner.html:1)
+  Planner workspace structure, toolbar, modals, reminder panel shell
+- [home.css](/tmp/vchri-planner-review/home.css:1)
+  Home dashboard layout and tile styling
 - [styles.css](/tmp/vchri-planner-review/styles.css:1)
-  All styling, responsive layout, reminder panel/alert UI
+  Shared styling, planner layout, responsive behavior, reminder panel/alert UI
 - [scripts/core.js](/tmp/vchri-planner-review/scripts/core.js:1)
   Shared constants, helpers, parsing, state, note utilities
 - [scripts/data.js](/tmp/vchri-planner-review/scripts/data.js:1)
@@ -60,16 +64,18 @@ Reminder polling runs every 30 seconds, so alerts may be slightly late.
   View calculations, task rendering, reminder panel rendering, alert rendering
 - [scripts/features.js](/tmp/vchri-planner-review/scripts/features.js:1)
   Edit modal, import/export, density/view mode helpers
+- [scripts/home.js](/tmp/vchri-planner-review/scripts/home.js:1)
+  Home dashboard rendering, quick add, tiles, and navigation into the planner
 - [scripts/main.js](/tmp/vchri-planner-review/scripts/main.js:1)
   Event listeners, shortcuts, quick add wiring, panel interactions
 
 ## What Changed Most Recently
 
-Latest batch in `cdde603`:
-- Added header reminder bell panel
-- Added `Due soon` view
-- Added natural-language quick entry parsing
-- Added in-app reminder cards with snooze actions
+Current redesign batch:
+- Split the experience into a home dashboard at `index.html` and the full planner at `planner.html`
+- Added home-specific styling in `home.css`
+- Added home dashboard behavior in `scripts/home.js`
+- Added planner top navigation so the two pages feel connected
 
 ## Known Limitations / Watchouts
 
@@ -121,4 +127,3 @@ If picking this up again:
 - invest in a real background reminder approach
 
 3. If we want a safer codebase next, add a tiny test layer around the parsing and reminder helpers.
-

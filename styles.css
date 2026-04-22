@@ -2309,3 +2309,33 @@
       background: rgba(167, 139, 250, 0.2);
       color: #a78bfa;
     }
+
+
+/* ── Planner top-nav (added for Home integration) ── */
+.planner-topnav {
+  max-width: var(--max-width);
+  margin: 16px auto 0;
+  padding: 0 var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.planner-topnav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  transition: all 0.15s ease;
+}
+.planner-topnav-link:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+.planner-topnav-sep { color: var(--color-text-muted); }
+.planner-topnav-current { color: var(--color-text); font-weight: 600; }
