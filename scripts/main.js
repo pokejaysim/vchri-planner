@@ -54,6 +54,14 @@
         render();
       });
 
+      function syncQuickAddFiltersUi() {
+        document.getElementById('filter-search').value = State.searchQuery;
+        document.getElementById('filter-priority').value = State.filterPriority;
+        document.getElementById('filter-status').value = State.filterStatus;
+        document.getElementById('filter-notes').value = State.filterNotes;
+        renderTagFilter();
+      }
+
       // Quick add
       document.getElementById('btn-add').addEventListener('click', async () => {
         const rawText = document.getElementById('add-text').value.trim();
@@ -73,26 +81,39 @@
         State.selectedDate = parsed.date;
         if (State.filterStatus === 'completed') {
           State.filterStatus = '';
-          document.getElementById('filter-status').value = '';
         }
         if (State.layoutMode === 'list' && State.viewMode !== 'today') {
           State.viewMode = 'today';
         }
 
-        await addTask({
+        const pendingTask = {
           text: parsed.text,
           priority: document.getElementById('add-priority').value,
-          category: DEFAULT_CATEGORY_ID,
-          dueTime: parsed.dueTime,
-          date: parsed.date,
-          completed: false,
-          pinned: false,
-          recurrence: 'none',
-          recurringSourceId: null,
           notes: '',
+          completed: false,
+          date: parsed.date,
+          dueTime: parsed.dueTime,
           reminderDate: parsed.reminderDate,
           reminderTime: parsed.reminderTime,
-          reminderFired: false
+          reminderFired: false,
+          pinned: false
+        };
+
+        if (!filterTasks([pendingTask]).length) {
+          State.searchQuery = '';
+          State.filterPriority = '';
+          State.filterNotes = '';
+          State.filterTag = '';
+          syncQuickAddFiltersUi();
+        } else {
+          syncQuickAddFiltersUi();
+        }
+
+        await addTask({
+          ...pendingTask,
+          category: DEFAULT_CATEGORY_ID,
+          recurrence: 'none',
+          recurringSourceId: null
         });
         document.getElementById('add-text').value = '';
         document.getElementById('add-time').value = '';
