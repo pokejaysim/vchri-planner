@@ -13,6 +13,7 @@
 
     /* ───────────── Constants ───────────── */
     const THEME_KEY = 'dailyPlanner_theme';
+    const LAYOUT_MODE_KEY = 'dailyPlanner_layoutMode';
     const REMINDER_POLL_INTERVAL_MS = 30000;
     const REMINDER_SOON_WINDOW_MS = 60 * 60 * 1000;
     const QUICK_ENTRY_WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -631,10 +632,15 @@
       showToast(draft ? 'Note saved' : 'Note removed');
     }
 
+    function persistLayoutMode(mode) {
+      localStorage.setItem(LAYOUT_MODE_KEY, mode);
+    }
+
     /* ───────────── State ───────────── */
     const State = {
       selectedDate: getTodayString(),
       tasks: [],
+      layoutMode: localStorage.getItem(LAYOUT_MODE_KEY) === 'board' ? 'board' : 'list',
       viewMode: 'today',
       sortMode: 'manual',
       densityMode: 'expanded',
@@ -689,4 +695,3 @@
         container.innerHTML = '';
       }
     }
-

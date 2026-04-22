@@ -148,8 +148,14 @@
       render();
     }
 
+    function setLayoutMode(mode) {
+      State.layoutMode = mode;
+      State.reminderPanelOpen = false;
+      persistLayoutMode(mode);
+      render();
+    }
+
     function setDensityMode(mode) {
       State.densityMode = mode;
       render();
     }
-

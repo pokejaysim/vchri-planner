@@ -62,7 +62,17 @@
     </section>
 
     <div class="planner-toolbar">
-      <div class="toolbar-section">
+      <div class="toolbar-section toolbar-layout-section">
+        <span class="toolbar-label">Layout</span>
+        <div class="segmented-control" id="layout-toggle">
+          <button class="segment-btn" type="button" data-layout="list">List</button>
+          <button class="segment-btn" type="button" data-layout="board">Board</button>
+        </div>
+      </div>
+      <div class="toolbar-section toolbar-board-hint" id="board-layout-hint" hidden>
+        <span class="shortcut-hint">Board groups tasks into Top priorities, Today, Upcoming, and Done.</span>
+      </div>
+      <div class="toolbar-section" id="toolbar-view-section">
         <span class="toolbar-label">View</span>
         <div class="segmented-control" id="view-toggle">
           <button class="segment-btn" type="button" data-view="today">Today <span class="segment-count" id="count-today">0</span></button>

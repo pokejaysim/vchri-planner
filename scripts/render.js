@@ -5,12 +5,16 @@
       renderReminderPanel();
       renderReminderAlerts();
 
-      const viewData = getTasksForActiveView();
-      const filteredPrimary = filterTasks(viewData.primaryTasks);
-      const filteredSecondary = filterTasks(viewData.secondaryTasks);
+      const viewData = State.layoutMode === 'board' ? getBoardViewData() : getTasksForActiveView();
 
       renderProgress(viewData.progressTasks, viewData.viewMode);
-      renderTaskList(filteredPrimary, filteredSecondary, viewData);
+      if (State.layoutMode === 'board') {
+        renderTaskBoard(viewData);
+      } else {
+        const filteredPrimary = filterTasks(viewData.primaryTasks);
+        const filteredSecondary = filterTasks(viewData.secondaryTasks);
+        renderTaskList(filteredPrimary, filteredSecondary, viewData);
+      }
     }
 
     function renderDateNav() {
@@ -31,9 +35,15 @@
       document.querySelectorAll('#view-toggle [data-view]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.view === State.viewMode);
       });
+      document.querySelectorAll('#layout-toggle [data-layout]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.layout === State.layoutMode);
+      });
       document.querySelectorAll('#density-toggle [data-density]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.density === State.densityMode);
       });
+      document.getElementById('toolbar-view-section').hidden = State.layoutMode === 'board';
+      document.getElementById('board-layout-hint').hidden = State.layoutMode !== 'board';
+      document.body.classList.toggle('board-layout-active', State.layoutMode === 'board');
 
       document.getElementById('count-today').textContent = counts.today;
       document.getElementById('count-due-soon').textContent = counts.dueSoon;
@@ -111,6 +121,68 @@
       return getTasksForView(State.viewMode);
     }
 
+    function getBoardViewData() {
+      const selectedDayTasks = State.tasks.filter(task => !task.completed && task.date === State.selectedDate);
+      const carriedOver = State.selectedDate >= getTodayString()
+        ? State.tasks.filter(task => !task.completed && task.date < State.selectedDate)
+        : [];
+      const upcomingTasks = State.tasks.filter(task => !task.completed && task.date > State.selectedDate);
+      const doneTasks = State.tasks.filter(task => task.completed);
+      const pinnedTasks = State.tasks.filter(task => !task.completed && task.pinned);
+
+      const boardFilterStatus = State.viewMode === 'done' && State.filterStatus === 'completed' ? '' : State.filterStatus;
+      const filteredPinned = filterTasks(pinnedTasks, { filterStatus: boardFilterStatus });
+      const pinnedIds = new Set(filteredPinned.map(task => task.id));
+      const filteredToday = filterTasks(selectedDayTasks.concat(carriedOver).filter(task => !pinnedIds.has(task.id)), { filterStatus: boardFilterStatus });
+      const filteredUpcoming = filterTasks(upcomingTasks.filter(task => !pinnedIds.has(task.id)), { filterStatus: boardFilterStatus });
+      const filteredDone = filterTasks(doneTasks, { filterStatus: boardFilterStatus });
+
+      const uniqueVisibleTasks = [];
+      const seenIds = new Set();
+      [filteredPinned, filteredToday, filteredUpcoming, filteredDone].forEach(group => {
+        group.forEach(task => {
+          if (seenIds.has(task.id)) return;
+          seenIds.add(task.id);
+          uniqueVisibleTasks.push(task);
+        });
+      });
+
+      const dayLabel = State.selectedDate === getTodayString() ? 'Today' : formatCompactDate(State.selectedDate);
+
+      return {
+        viewMode: 'board',
+        progressTasks: uniqueVisibleTasks,
+        emptyTitle: 'No tasks on the board',
+        emptyText: 'Filtered tasks will appear in the board columns as you add work.',
+        columns: [
+          {
+            key: 'top-priorities',
+            title: 'Top Priorities',
+            subtitle: 'Pinned tasks you want surfaced first',
+            tasks: filteredPinned
+          },
+          {
+            key: 'today',
+            title: State.selectedDate === getTodayString() ? 'Today' : 'Selected Day',
+            subtitle: State.selectedDate === getTodayString() ? 'Active work and carryover for today' : 'Focused work for ' + dayLabel,
+            tasks: filteredToday
+          },
+          {
+            key: 'upcoming',
+            title: 'Upcoming',
+            subtitle: 'Next tasks already on deck',
+            tasks: filteredUpcoming
+          },
+          {
+            key: 'done',
+            title: 'Done',
+            subtitle: 'Completed work stays visible for review',
+            tasks: filteredDone
+          }
+        ]
+      };
+    }
+
     function renderProgress(tasks, viewMode) {
       document.getElementById('greeting').textContent = getGreeting();
       const total = tasks.length;
@@ -118,7 +190,9 @@
       const pct = viewMode === 'done' ? (total ? 100 : 0) : (total ? Math.round((done / total) * 100) : 0);
 
       let progressText = 'No tasks for this day yet. Add one above!';
-      if (viewMode === 'due-soon') {
+      if (viewMode === 'board') {
+        progressText = total ? total + ' tasks are visible across your board' : 'Nothing is showing on the board right now.';
+      } else if (viewMode === 'due-soon') {
         progressText = total ? total + ' reminders are due within the next hour' : 'No reminders coming up within the next hour.';
       } else if (viewMode === 'upcoming') {
         progressText = total ? total + ' upcoming tasks on deck' : 'No upcoming tasks right now.';
@@ -146,7 +220,11 @@
       document.getElementById('celebration').classList.toggle('visible', viewMode === 'today' && total > 0 && done === total);
     }
 
-    function filterTasks(tasks) {
+    function filterTasks(tasks, overrides = {}) {
+      const filterStatus = Object.prototype.hasOwnProperty.call(overrides, 'filterStatus')
+        ? overrides.filterStatus
+        : State.filterStatus;
+
       return tasks.filter(t => {
         if (State.searchQuery) {
           const query = State.searchQuery.toLowerCase();
@@ -154,8 +232,8 @@
           if (!haystacks.some(value => value.includes(query))) return false;
         }
         if (State.filterPriority && t.priority !== State.filterPriority) return false;
-        if (State.filterStatus === 'active' && t.completed) return false;
-        if (State.filterStatus === 'completed' && !t.completed) return false;
+        if (filterStatus === 'active' && t.completed) return false;
+        if (filterStatus === 'completed' && !t.completed) return false;
         if (State.filterNotes === 'with-notes' && !getTaskNotes(t)) return false;
         if (State.filterNotes === 'without-notes' && getTaskNotes(t)) return false;
         if (State.filterTag) {
@@ -166,7 +244,8 @@
       });
     }
 
-    function sortTasksForDisplay(tasks) {
+    function sortTasksForDisplay(tasks, modeOverride = State.viewMode) {
+      const mode = modeOverride;
       const sorted = [...tasks];
       if (State.sortMode === 'recent') {
         sorted.sort((a, b) => {
@@ -179,14 +258,40 @@
 
       sorted.sort((a, b) => {
         if (a.completed !== b.completed) return a.completed ? 1 : -1;
-        if (State.viewMode === 'due-soon') {
+        if (mode === 'due-soon') {
           const reminderDiff = getReminderSortValue(a) - getReminderSortValue(b);
           if (reminderDiff !== 0) return reminderDiff;
         }
-        if (State.viewMode === 'upcoming' || State.viewMode === 'overdue' || State.viewMode === 'done') {
+        if (mode === 'upcoming' || mode === 'overdue' || mode === 'done') {
           const byDate = getDateTimeValue(a) - getDateTimeValue(b);
           if (byDate !== 0) return byDate;
         }
+        return (a.sortOrder || 0) - (b.sortOrder || 0);
+      });
+      return sorted;
+    }
+
+    function sortTasksForBoard(tasks, columnKey) {
+      const sorted = [...tasks];
+      sorted.sort((a, b) => {
+        if (columnKey === 'done') {
+          const doneDiff = new Date(b.completedAt || b.updatedAt || b.createdAt || 0).getTime() - new Date(a.completedAt || a.updatedAt || a.createdAt || 0).getTime();
+          if (doneDiff !== 0) return doneDiff;
+          return getDateTimeValue(b) - getDateTimeValue(a);
+        }
+
+        const overdueDiff = Number(isTaskOverdueForView(b)) - Number(isTaskOverdueForView(a));
+        if (overdueDiff !== 0) return overdueDiff;
+
+        const dueSoonDiff = Number(isTaskDueSoon(b)) - Number(isTaskDueSoon(a));
+        if (dueSoonDiff !== 0) return dueSoonDiff;
+
+        const reminderDiff = getReminderSortValue(a) - getReminderSortValue(b);
+        if (reminderDiff !== 0 && reminderDiff !== Infinity && reminderDiff !== -Infinity) return reminderDiff;
+
+        const byDate = getDateTimeValue(a) - getDateTimeValue(b);
+        if (byDate !== 0) return byDate;
+
         return (a.sortOrder || 0) - (b.sortOrder || 0);
       });
       return sorted;
@@ -275,13 +380,14 @@
     }
 
     function buildTaskCardHtml(task, isCarried) {
+      const isBoard = State.layoutMode === 'board';
       const overdueClass = isOverdue(task) ? ' overdue' : '';
       const completedClass = task.completed ? ' completed' : '';
       const priorityClass = ' priority-' + task.priority;
       const carriedClass = isCarried ? ' carried' : '';
       const pinnedClass = task.pinned ? ' pinned' : '';
       const isCompact = State.densityMode === 'compact';
-      const allowManualReorder = State.sortMode === 'manual' && State.viewMode === 'today' && !isCarried && !task.pinned;
+      const allowManualReorder = !isBoard && State.sortMode === 'manual' && State.viewMode === 'today' && !isCarried && !task.pinned;
 
       // Extract hashtags and clean text
       const hashtags = extractHashtags(task.text);
@@ -321,6 +427,19 @@
       let recurringBadge = '';
       if (task.recurrence && task.recurrence !== 'none') {
         recurringBadge = '<span class="recurring-badge">↻ ' + escapeHtml(RECURRENCE_LABELS[task.recurrence] || task.recurrence) + '</span>';
+      }
+
+      let boardStateBadges = '';
+      if (isBoard && !task.completed) {
+        if (isTaskOverdueForView(task)) {
+          boardStateBadges += '<span class="board-state-badge overdue">Overdue</span>';
+        } else if (isTaskDueSoon(task)) {
+          boardStateBadges += '<span class="board-state-badge due-soon">Due soon</span>';
+        }
+
+        if (!isCarried && task.date > State.selectedDate) {
+          boardStateBadges += '<span class="board-date-badge">' + escapeHtml(formatCompactDate(task.date)) + '</span>';
+        }
       }
 
       // Build hashtag badges
@@ -394,7 +513,7 @@
               '<span class="priority-pill ' + task.priority + '">' +
                 (task.priority === 'high' ? '! ' : '') + task.priority.charAt(0).toUpperCase() + task.priority.slice(1) +
               '</span>' +
-              pinnedBadge + recurringBadge + noteBadge + hashtagHtml + timeHtml + reminderBadge + carriedBadge +
+              pinnedBadge + recurringBadge + noteBadge + hashtagHtml + boardStateBadges + timeHtml + reminderBadge + carriedBadge +
             '</div>' +
             notePreviewHtml +
             noteFullHtml +
@@ -430,6 +549,50 @@
       }
 
       return html;
+    }
+
+    function renderTaskBoard(viewData) {
+      const taskList = document.getElementById('task-list');
+      const emptyState = document.getElementById('empty-state');
+      const visibleTaskCount = viewData.columns.reduce((sum, column) => sum + column.tasks.length, 0);
+
+      taskList.className = 'task-list board-mode' + (State.densityMode === 'compact' ? ' compact-mode' : '');
+
+      if (!visibleTaskCount) {
+        taskList.innerHTML = '';
+        document.getElementById('empty-state').querySelector('.empty-state-title').textContent = viewData.emptyTitle;
+        document.getElementById('empty-state').querySelector('.empty-state-text').textContent = viewData.emptyText;
+        emptyState.style.display = 'block';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+
+      taskList.innerHTML = viewData.columns.map(column => {
+        const tasks = sortTasksForBoard(column.tasks, column.key);
+        const bodyHtml = tasks.length
+          ? tasks.map(task => buildTaskCardHtml(task, !task.completed && task.date < State.selectedDate)).join('')
+          : '<div class="board-column-empty">Nothing here right now.</div>';
+
+        return '<section class="board-column board-column-' + column.key + '">' +
+          '<div class="board-column-header">' +
+            '<div>' +
+              '<div class="board-column-title">' + escapeHtml(column.title) + '</div>' +
+              '<div class="board-column-subtitle">' + escapeHtml(column.subtitle) + '</div>' +
+            '</div>' +
+            '<span class="board-column-count">' + column.tasks.length + '</span>' +
+          '</div>' +
+          '<div class="board-column-body">' + bodyHtml + '</div>' +
+        '</section>';
+      }).join('');
+
+      if (State.editingNoteId) {
+        const editor = taskList.querySelector('.task-note-editor[data-id="' + State.editingNoteId + '"]');
+        if (editor) {
+          editor.focus();
+          editor.setSelectionRange(editor.value.length, editor.value.length);
+        }
+      }
     }
 
     function renderTaskList(todayTasks, carriedTasks, viewData) {
@@ -622,4 +785,3 @@
 
       setTimeout(() => container.remove(), 2500);
     }
-

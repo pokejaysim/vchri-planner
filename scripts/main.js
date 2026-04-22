@@ -41,6 +41,10 @@
         btn.addEventListener('click', () => setViewMode(btn.dataset.view));
       });
 
+      document.querySelectorAll('#layout-toggle [data-layout]').forEach(btn => {
+        btn.addEventListener('click', () => setLayoutMode(btn.dataset.layout));
+      });
+
       document.querySelectorAll('#density-toggle [data-density]').forEach(btn => {
         btn.addEventListener('click', () => setDensityMode(btn.dataset.density));
       });
