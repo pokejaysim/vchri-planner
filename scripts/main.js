@@ -58,7 +58,6 @@
       document.getElementById('btn-add').addEventListener('click', async () => {
         const rawText = document.getElementById('add-text').value.trim();
         if (!rawText) return;
-        const previousSelectedDate = State.selectedDate;
         const explicitTime = document.getElementById('add-time').value || null;
         const parsed = parseQuickEntry(rawText, State.selectedDate, explicitTime);
 
@@ -72,10 +71,12 @@
         }
 
         State.selectedDate = parsed.date;
-        if (State.viewMode === 'done' || (parsed.usedNaturalLanguage && parsed.date !== previousSelectedDate)) {
-          State.viewMode = 'today';
+        if (State.filterStatus === 'completed') {
           State.filterStatus = '';
           document.getElementById('filter-status').value = '';
+        }
+        if (State.layoutMode === 'list' && State.viewMode !== 'today') {
+          State.viewMode = 'today';
         }
 
         await addTask({
