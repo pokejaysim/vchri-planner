@@ -1,8 +1,16 @@
     /* ───────────── Initialize ───────────── */
     document.addEventListener('DOMContentLoaded', () => {
       loadTheme();
+      registerPlannerServiceWorker();
       setupRealtimeSync();
       startReminderPolling();
+      setupUndoBar();
+      const reminderSupportCopy = document.getElementById('reminder-support-copy');
+      if (reminderSupportCopy) {
+        reminderSupportCopy.textContent = supportsNotificationTriggers()
+          ? 'Scheduled notifications are available here while the browser is running, even if the planner is in the background.'
+          : 'This browser falls back to reminders while the planner stays open. Install the app for the strongest reminder support available here.';
+      }
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') checkDueReminders();
       });
@@ -91,12 +99,14 @@
           priority: document.getElementById('add-priority').value,
           notes: '',
           completed: false,
+          archived: false,
           date: parsed.date,
           dueTime: parsed.dueTime,
           reminderDate: parsed.reminderDate,
           reminderTime: parsed.reminderTime,
           reminderFired: false,
-          pinned: false
+          pinned: false,
+          subtasks: []
         };
 
         if (!filterTasks([pendingTask]).length) {
@@ -154,11 +164,7 @@
           const task = State.tasks.find(t => t.id === checkbox.dataset.id);
           if (task) {
             const nowCompleted = !task.completed;
-            const completedAt = nowCompleted ? getCurrentTimestamp() : null;
-            await updateTask(task.id, { completed: nowCompleted, completedAt });
-            if (nowCompleted) {
-              await ensureRecurringTask(task);
-            }
+            await setTaskCompleted(task, nowCompleted);
             if (nowCompleted) {
               const allTasks = State.tasks.filter(t => t.date === State.selectedDate);
               const willAllBeCompleted = allTasks.length > 0 && allTasks.every(t => t.id === task.id ? nowCompleted : t.completed);
@@ -184,6 +190,24 @@
           return;
         }
 
+        const archiveBtn = e.target.closest('.task-action-btn.archive');
+        if (archiveBtn) {
+          const task = State.tasks.find(t => t.id === archiveBtn.dataset.id);
+          if (task) {
+            await setTaskArchived(task, true);
+          }
+          return;
+        }
+
+        const restoreBtn = e.target.closest('.task-action-btn.restore');
+        if (restoreBtn) {
+          const task = State.tasks.find(t => t.id === restoreBtn.dataset.id);
+          if (task) {
+            await setTaskArchived(task, false);
+          }
+          return;
+        }
+
         const pinBtn = e.target.closest('.task-action-btn.pin');
         if (pinBtn) {
           const task = State.tasks.find(t => t.id === pinBtn.dataset.id);
@@ -199,6 +223,27 @@
           const id = noteToggle.dataset.id;
           State.expandedNotes[id] = !State.expandedNotes[id];
           render();
+          return;
+        }
+
+        const subtaskToggle = e.target.closest('.task-subtask-toggle');
+        if (subtaskToggle) {
+          const id = subtaskToggle.dataset.id;
+          State.expandedSubtasks[id] = !State.expandedSubtasks[id];
+          render();
+          return;
+        }
+
+        const subtaskEdit = e.target.closest('.task-subtask-edit');
+        if (subtaskEdit) {
+          const task = State.tasks.find(t => t.id === subtaskEdit.dataset.id);
+          if (task) openEditModal(task, 'subtasks');
+          return;
+        }
+
+        const subtaskItem = e.target.closest('.task-subtask-item');
+        if (subtaskItem) {
+          await toggleTaskSubtask(subtaskItem.dataset.taskId, subtaskItem.dataset.subtaskId);
           return;
         }
 
@@ -245,7 +290,7 @@
         const deleteBtn = e.target.closest('.task-action-btn.delete');
         if (deleteBtn) {
           const task = State.tasks.find(t => t.id === deleteBtn.dataset.id);
-          if (task) showConfirm('Delete Task', 'Delete "' + task.text + '"?', () => deleteTask(task.id));
+          if (task) showConfirm('Delete Task', 'Delete "' + task.text + '" permanently?', () => deleteTaskWithUndo(task));
           return;
         }
 

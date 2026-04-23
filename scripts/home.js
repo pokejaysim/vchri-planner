@@ -51,7 +51,7 @@
     function getNextTimedTask() {
       const today = getTodayString();
       const now = new Date();
-      return State.tasks
+      return getActiveTasks()
         .filter(t => !t.completed && t.date === today && t.dueTime)
         .map(t => {
           const [h, m] = t.dueTime.split(':').map(Number);
@@ -71,7 +71,7 @@
     /* ── Data slices ── */
     function getHomeTodayTasks() {
       const today = getTodayString();
-      return State.tasks
+      return getActiveTasks()
         .filter(t => t.date === today)
         .sort((a, b) => {
           if (a.completed !== b.completed) return a.completed ? 1 : -1;
@@ -83,7 +83,7 @@
     }
 
     function getHomePinnedTasks() {
-      return State.tasks
+      return getActiveTasks()
         .filter(t => !t.completed && t.pinned)
         .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
         .slice(0, 4);
@@ -94,7 +94,7 @@
       const today = getTodayString();
       const now = Date.now();
       const window = 24 * 60 * 60 * 1000; // next 24h
-      return State.tasks
+      return getActiveTasks()
         .filter(t => !t.completed)
         .filter(t => {
           // either has a due time today in future
@@ -135,12 +135,14 @@
     }
 
     function getHomeStats() {
-      const tasks = State.tasks;
+      const tasks = getActiveTasks();
+      const archivedTasks = getArchivedTasks();
       const today = getTodayString();
       const weekAgo = addDays(today, -6);
       const weekTasks = tasks.filter(t => t.date >= weekAgo && t.date <= today);
       const weekDone = weekTasks.filter(t => t.completed).length;
       const completion = weekTasks.length ? Math.round((weekDone / weekTasks.length) * 100) : 0;
+      const archivedThisWeek = archivedTasks.filter(t => t.archivedAt && t.archivedAt.slice(0, 10) >= weekAgo && t.archivedAt.slice(0, 10) <= today).length;
 
       // streak: consecutive days (ending today or yesterday) with >=1 completion
       let streak = 0;
@@ -166,13 +168,14 @@
         weekDone,
         streak,
         completion,
-        overdue: getHomeOverdueCount()
+        overdue: getHomeOverdueCount(),
+        archived: archivedThisWeek
       };
     }
 
     function getHomeTodayProgress() {
       const today = getTodayString();
-      const todayTasks = State.tasks.filter(t => t.date === today);
+      const todayTasks = getActiveTasks().filter(t => t.date === today);
       const done = todayTasks.filter(t => t.completed).length;
       const total = todayTasks.length;
       const pct = total ? Math.round((done / total) * 100) : 0;
@@ -350,7 +353,8 @@
         '<div class="home-stat"><div class="n">' + s.weekDone + '</div><div class="lbl">Done this week</div></div>' +
         '<div class="home-stat"><div class="n">' + s.streak + '</div><div class="lbl">Day streak</div></div>' +
         '<div class="home-stat"><div class="n">' + s.completion + '%</div><div class="lbl">Completion</div></div>' +
-        '<div class="home-stat ' + (s.overdue > 0 ? 'warn' : '') + '"><div class="n">' + s.overdue + '</div><div class="lbl">Overdue</div></div>';
+        '<div class="home-stat ' + (s.overdue > 0 ? 'warn' : '') + '"><div class="n">' + s.overdue + '</div><div class="lbl">Overdue</div></div>' +
+        '<div class="home-stat"><div class="n">' + s.archived + '</div><div class="lbl">Archived</div></div>';
     }
 
     /* ── Overrides required by data.js / core.js ── */
@@ -392,6 +396,8 @@
       // theme + accent
       loadTheme();
       applyAccent(TWEAK_DEFAULTS.accent);
+      registerPlannerServiceWorker();
+      setupUndoBar();
 
       // clock
       renderClock();
@@ -426,9 +432,11 @@
           date: parsed.date,
           completed: false,
           pinned: false,
+          archived: false,
           recurrence: 'none',
           recurringSourceId: null,
           notes: '',
+          subtasks: [],
           reminderDate: parsed.reminderDate,
           reminderTime: parsed.reminderTime,
           reminderFired: false
@@ -454,11 +462,7 @@
           const id = toggle.dataset.toggle;
           const task = State.tasks.find(t => t.id === id);
           if (task) {
-            const nowCompleted = !task.completed;
-            await updateTask(id, {
-              completed: nowCompleted,
-              completedAt: nowCompleted ? getCurrentTimestamp() : null
-            });
+            await setTaskCompleted(task, !task.completed);
           }
           return;
         }

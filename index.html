@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Home · Daily Planner</title>
+  <meta name="theme-color" content="#6366f1">
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="home.css">
 </head>
@@ -25,6 +27,7 @@
       <nav class="home-nav">
         <a class="home-nav-link active" href="index.html">Home</a>
         <a class="home-nav-link" href="planner.html">Planner</a>
+        <a class="home-nav-link" href="review.html">Review</a>
       </nav>
       <div class="home-topbar-right">
         <div class="home-sync" aria-live="polite">
@@ -126,6 +129,7 @@
         <header class="home-tile-head">
           <span class="home-tile-kicker">This week</span>
           <span class="home-tile-title">At a glance</span>
+          <a class="home-tile-link" href="review.html">Weekly review →</a>
         </header>
         <div class="home-stats-grid" id="home-stats"></div>
       </article>
@@ -138,6 +142,14 @@
       <span><kbd>/</kbd> open planner</span>
       <span>Clicking a task opens it in the planner</span>
     </footer>
+
+    <div class="undo-bar" id="undo-bar" hidden>
+      <div class="undo-bar-message" id="undo-message"></div>
+      <div class="undo-bar-actions">
+        <button class="undo-bar-btn" id="undo-action" type="button">Undo</button>
+        <button class="undo-bar-dismiss" id="undo-dismiss" type="button" aria-label="Dismiss undo">&times;</button>
+      </div>
+    </div>
 
   </div>
 

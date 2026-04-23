@@ -14,6 +14,7 @@
     /* ───────────── Constants ───────────── */
     const THEME_KEY = 'dailyPlanner_theme';
     const LAYOUT_MODE_KEY = 'dailyPlanner_layoutMode';
+    const UNDO_TIMEOUT_MS = 7000;
     const REMINDER_POLL_INTERVAL_MS = 30000;
     const REMINDER_SOON_WINDOW_MS = 60 * 60 * 1000;
     const QUICK_ENTRY_WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -35,6 +36,13 @@
     function getTodayString() {
       const d = new Date();
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function createId(prefix = 'id') {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return prefix + '-' + crypto.randomUUID();
+      }
+      return prefix + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
     }
 
     function formatDate(dateStr) {
@@ -95,6 +103,27 @@
       return toDateString(date);
     }
 
+    function getWeekStart(dateStr) {
+      const date = parseDateOnly(dateStr);
+      const day = date.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      date.setDate(date.getDate() + diff);
+      return toDateString(date);
+    }
+
+    function getWeekEnd(weekStart) {
+      return addDays(weekStart, 6);
+    }
+
+    function formatWeekRange(weekStart) {
+      const start = parseDateOnly(weekStart);
+      const end = parseDateOnly(getWeekEnd(weekStart));
+      const sameMonth = start.getMonth() === end.getMonth();
+      const startLabel = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const endLabel = end.toLocaleDateString('en-US', sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' });
+      return startLabel + ' - ' + endLabel;
+    }
+
     function addMonths(dateStr, months) {
       const date = parseDateOnly(dateStr);
       const day = date.getDate();
@@ -137,7 +166,7 @@
     }
 
     function isTaskOverdueForView(task) {
-      return !task.completed && (task.date < State.selectedDate || (task.date === State.selectedDate && isOverdue(task)));
+      return !task.archived && !task.completed && (task.date < State.selectedDate || (task.date === State.selectedDate && isOverdue(task)));
     }
 
     function getReminderDateTime(task) {
@@ -167,15 +196,23 @@
 
     function isTaskDueSoon(task, nowMs = Date.now()) {
       const reminderAt = getReminderDateTime(task);
-      if (!reminderAt || task.completed || task.reminderFired) return false;
+      if (!reminderAt || task.archived || task.completed || task.reminderFired) return false;
       const reminderMs = reminderAt.getTime();
       return reminderMs >= nowMs && reminderMs <= nowMs + REMINDER_SOON_WINDOW_MS;
     }
 
     function getPendingReminderTasks() {
       return State.tasks
-        .filter(task => !task.completed && !task.reminderFired && getReminderDateTime(task))
+        .filter(task => !task.archived && !task.completed && !task.reminderFired && getReminderDateTime(task))
         .sort((a, b) => getReminderSortValue(a) - getReminderSortValue(b));
+    }
+
+    function getActiveTasks(tasks = State.tasks) {
+      return tasks.filter(task => !task.archived);
+    }
+
+    function getArchivedTasks(tasks = State.tasks) {
+      return tasks.filter(task => !!task.archived);
     }
 
     function getReminderSummaryLabel(task) {
@@ -305,6 +342,104 @@
 
     function getTaskNotes(task) {
       return (task.notes || '').trim();
+    }
+
+    function normalizeSubtasks(subtasks) {
+      if (!Array.isArray(subtasks)) return [];
+      return subtasks
+        .map(subtask => {
+          if (!subtask) return null;
+          const text = String(subtask.text || '').trim();
+          if (!text) return null;
+          return {
+            id: subtask.id || createId('subtask'),
+            text,
+            completed: !!subtask.completed,
+            createdAt: subtask.createdAt || null,
+            completedAt: subtask.completed ? (subtask.completedAt || subtask.updatedAt || subtask.createdAt || null) : null
+          };
+        })
+        .filter(Boolean);
+    }
+
+    function serializeSubtasksForEditor(subtasks) {
+      return normalizeSubtasks(subtasks)
+        .map(subtask => '- [' + (subtask.completed ? 'x' : ' ') + '] ' + subtask.text)
+        .join('\n');
+    }
+
+    function parseSubtasksInput(input) {
+      return String(input || '')
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => {
+          const checklistMatch = line.match(/^(?:[-*]\s*)?\[([ xX])\]\s+(.*)$/);
+          if (checklistMatch) {
+            const completed = checklistMatch[1].toLowerCase() === 'x';
+            return {
+              id: createId('subtask'),
+              text: checklistMatch[2].trim(),
+              completed,
+              createdAt: getCurrentTimestamp(),
+              completedAt: completed ? getCurrentTimestamp() : null
+            };
+          }
+
+          const bulletMatch = line.match(/^(?:[-*]\s+)?(.*)$/);
+          const text = bulletMatch ? bulletMatch[1].trim() : line;
+          if (!text) return null;
+          return {
+            id: createId('subtask'),
+            text,
+            completed: false,
+            createdAt: getCurrentTimestamp(),
+            completedAt: null
+          };
+        })
+        .filter(Boolean);
+    }
+
+    function getSubtaskProgress(task) {
+      const subtasks = normalizeSubtasks(task.subtasks);
+      const total = subtasks.length;
+      const completed = subtasks.filter(subtask => subtask.completed).length;
+      return {
+        subtasks,
+        total,
+        completed,
+        remaining: Math.max(0, total - completed),
+        label: total ? completed + '/' + total + ' done' : 'No subtasks'
+      };
+    }
+
+    function cloneTaskSnapshot(task) {
+      return JSON.parse(JSON.stringify(task || {}));
+    }
+
+    function getTaskRestoreFields(task) {
+      return {
+        text: task.text,
+        priority: task.priority,
+        recurrence: task.recurrence || 'none',
+        pinned: !!task.pinned,
+        category: DEFAULT_CATEGORY_ID,
+        dueTime: task.dueTime || null,
+        date: task.date,
+        notes: task.notes || '',
+        notesUpdatedAt: task.notesUpdatedAt || null,
+        reminderDate: task.reminderDate || null,
+        reminderTime: task.reminderTime || null,
+        reminderFired: !!task.reminderFired,
+        reminderFiredAt: task.reminderFiredAt || null,
+        completed: !!task.completed,
+        completedAt: task.completedAt || null,
+        archived: !!task.archived,
+        archivedAt: task.archivedAt || null,
+        subtasks: normalizeSubtasks(task.subtasks),
+        sortOrder: typeof task.sortOrder === 'number' ? task.sortOrder : 0,
+        recurringSourceId: task.recurringSourceId || null
+      };
     }
 
     function getNotePreview(noteText) {
@@ -461,11 +596,15 @@
         ...task,
         category: DEFAULT_CATEGORY_ID,
         pinned: !!task.pinned,
+        completed: !!task.completed,
+        archived: !!task.archived,
+        archivedAt: task.archivedAt || null,
         recurrence: task.recurrence || 'none',
         recurringSourceId: task.recurringSourceId || null,
         createdAt: task.createdAt || null,
         updatedAt: task.updatedAt || task.createdAt || null,
-        notesUpdatedAt: task.notesUpdatedAt || ((task.notes || '').trim() ? (task.updatedAt || task.createdAt || null) : null)
+        notesUpdatedAt: task.notesUpdatedAt || ((task.notes || '').trim() ? (task.updatedAt || task.createdAt || null) : null),
+        subtasks: normalizeSubtasks(task.subtasks)
       };
     }
 
@@ -476,6 +615,7 @@
 
     function showToast(message) {
       const el = document.getElementById('toast');
+      if (!el) return;
       el.textContent = message;
       el.classList.add('visible');
       clearTimeout(toastTimer);
@@ -486,6 +626,7 @@
     function setSyncStatus(status) {
       const dot = document.getElementById('sync-dot');
       const text = document.getElementById('sync-text');
+      if (!dot || !text) return;
       dot.className = 'sync-dot' + (status === 'syncing' ? ' syncing' : status === 'offline' ? ' offline' : '');
       text.textContent = status === 'syncing' ? 'Syncing...' : status === 'offline' ? 'Offline' : 'Synced';
     }
@@ -511,7 +652,203 @@
 
     function updateThemeIcon() {
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      document.getElementById('btn-theme').innerHTML = isDark ? '☀' : '☾';
+      const themeBtn = document.getElementById('btn-theme');
+      if (themeBtn) themeBtn.innerHTML = isDark ? '☀' : '☾';
+    }
+
+    let serviceWorkerRegistrationPromise = null;
+
+    function canUseServiceWorkerFeatures() {
+      return typeof window !== 'undefined' && 'serviceWorker' in navigator && window.isSecureContext;
+    }
+
+    function supportsNotificationTriggers() {
+      return typeof Notification !== 'undefined' &&
+        'showTrigger' in Notification.prototype &&
+        typeof TimestampTrigger !== 'undefined';
+    }
+
+    function getReminderNotificationTag(taskId) {
+      return 'planner-reminder-' + taskId;
+    }
+
+    function buildReminderNotificationBody(task) {
+      if (task.dueTime) return task.text + ' due at ' + formatTime(task.dueTime);
+      return task.text;
+    }
+
+    async function registerPlannerServiceWorker() {
+      if (!canUseServiceWorkerFeatures()) return null;
+      if (!serviceWorkerRegistrationPromise) {
+        serviceWorkerRegistrationPromise = navigator.serviceWorker
+          .register('sw.js')
+          .then(() => navigator.serviceWorker.ready)
+          .catch(error => {
+            console.error('Service worker registration error:', error);
+            return null;
+          });
+      }
+      return serviceWorkerRegistrationPromise;
+    }
+
+    async function showTaskNotification(task, options = {}) {
+      const title = options.title || 'Planner reminder';
+      const body = options.body || buildReminderNotificationBody(task);
+      const tag = options.tag || getReminderNotificationTag(task.id);
+      const data = {
+        taskId: task.id,
+        url: 'planner.html#task=' + encodeURIComponent(task.id)
+      };
+
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return false;
+
+      const registration = await registerPlannerServiceWorker();
+      if (registration) {
+        await registration.showNotification(title, {
+          body,
+          tag,
+          data,
+          timestamp: getReminderDateTime(task)?.getTime() || Date.now(),
+          icon: 'assets/planner-icon.svg',
+          badge: 'assets/planner-badge.svg',
+          requireInteraction: true
+        });
+        return true;
+      }
+
+      if ('Notification' in window) {
+        new Notification(title, { body, tag });
+        return true;
+      }
+
+      return false;
+    }
+
+    async function cancelScheduledReminderNotification(taskId, registrationOverride = null) {
+      const registration = registrationOverride || await registerPlannerServiceWorker();
+      if (!registration || typeof registration.getNotifications !== 'function') return;
+      const notifications = await registration.getNotifications({
+        tag: getReminderNotificationTag(taskId),
+        includeTriggered: true
+      });
+      notifications.forEach(notification => notification.close());
+    }
+
+    async function syncScheduledReminderNotifications() {
+      if (!canUseServiceWorkerFeatures()) return;
+      const registration = await registerPlannerServiceWorker();
+      if (!registration || typeof registration.getNotifications !== 'function') return;
+      if (typeof Notification === 'undefined') return;
+
+      const supportsScheduled = supportsNotificationTriggers();
+      State.scheduledNotificationSupported = supportsScheduled;
+
+      const existingNotifications = await registration.getNotifications({ includeTriggered: true });
+      const existingByTag = new Map();
+      existingNotifications.forEach(notification => {
+        if (notification.tag && notification.tag.startsWith('planner-reminder-')) {
+          existingByTag.set(notification.tag, notification);
+        }
+      });
+
+      const now = Date.now();
+      const scheduledTasks = getActiveTasks()
+        .filter(task => !task.completed && !task.reminderFired && getReminderDateTime(task))
+        .map(task => ({ task, reminderAt: getReminderDateTime(task) }))
+        .filter(entry => entry.reminderAt && entry.reminderAt.getTime() > now);
+
+      const desiredTags = new Set(scheduledTasks.map(entry => getReminderNotificationTag(entry.task.id)));
+      existingByTag.forEach((notification, tag) => {
+        if (!desiredTags.has(tag) || Notification.permission !== 'granted' || !supportsScheduled) {
+          notification.close();
+        }
+      });
+
+      if (Notification.permission !== 'granted' || !supportsScheduled) return;
+
+      for (const entry of scheduledTasks) {
+        const tag = getReminderNotificationTag(entry.task.id);
+        const existing = existingByTag.get(tag);
+        const targetTimestamp = entry.reminderAt.getTime();
+        if (existing && existing.timestamp === targetTimestamp) continue;
+        if (existing) existing.close();
+
+        await registration.showNotification('Planner reminder', {
+          tag,
+          body: buildReminderNotificationBody(entry.task),
+          showTrigger: new TimestampTrigger(targetTimestamp),
+          timestamp: targetTimestamp,
+          data: {
+            taskId: entry.task.id,
+            url: 'planner.html#task=' + encodeURIComponent(entry.task.id)
+          },
+          icon: 'assets/planner-icon.svg',
+          badge: 'assets/planner-badge.svg',
+          requireInteraction: true
+        });
+      }
+    }
+
+    let undoTimer = null;
+
+    function renderUndoBar() {
+      const undoBar = document.getElementById('undo-bar');
+      const undoMessage = document.getElementById('undo-message');
+      const undoAction = document.getElementById('undo-action');
+      if (!undoBar || !undoMessage || !undoAction) return;
+
+      if (!State.undoAction) {
+        undoBar.classList.remove('visible');
+        undoBar.hidden = true;
+        return;
+      }
+
+      undoMessage.textContent = State.undoAction.message;
+      undoAction.textContent = State.undoAction.label || 'Undo';
+      undoBar.hidden = false;
+      requestAnimationFrame(() => undoBar.classList.add('visible'));
+    }
+
+    function clearUndoAction() {
+      clearTimeout(undoTimer);
+      State.undoAction = null;
+      renderUndoBar();
+    }
+
+    async function executeUndoAction() {
+      if (!State.undoAction || typeof State.undoAction.handler !== 'function') return;
+      const handler = State.undoAction.handler;
+      clearUndoAction();
+      try {
+        await handler();
+        showToast('Action undone');
+      } catch (error) {
+        console.error('Undo error:', error);
+        showToast('Failed to undo action');
+      }
+    }
+
+    function queueUndoAction(message, handler, label = 'Undo') {
+      clearTimeout(undoTimer);
+      State.undoAction = { message, handler, label };
+      renderUndoBar();
+      undoTimer = setTimeout(() => {
+        clearUndoAction();
+      }, UNDO_TIMEOUT_MS);
+    }
+
+    function setupUndoBar() {
+      const undoAction = document.getElementById('undo-action');
+      const undoDismiss = document.getElementById('undo-dismiss');
+      if (undoAction && !undoAction.dataset.bound) {
+        undoAction.dataset.bound = 'true';
+        undoAction.addEventListener('click', executeUndoAction);
+      }
+      if (undoDismiss && !undoDismiss.dataset.bound) {
+        undoDismiss.dataset.bound = 'true';
+        undoDismiss.addEventListener('click', clearUndoAction);
+      }
+      renderUndoBar();
     }
 
     function jumpToTask(taskId) {
@@ -522,9 +859,9 @@
       }
 
       State.selectedDate = task.date;
-      State.viewMode = task.completed ? 'done' : 'today';
+      State.viewMode = task.archived ? 'archived' : (task.completed ? 'done' : 'today');
       State.reminderPanelOpen = false;
-      if (task.completed) {
+      if (task.completed && !task.archived) {
         State.filterStatus = 'completed';
       } else if (State.filterStatus === 'completed') {
         State.filterStatus = '';
@@ -617,11 +954,13 @@
     async function saveInlineNoteEdit(id) {
       const draft = (State.noteDrafts[id] || '').trim();
       const task = State.tasks.find(item => item.id === id);
+      const previous = cloneTaskSnapshot(task);
       const notesUpdatedAt = getNotesUpdatedAt(task, draft);
-      await updateTask(id, {
+      const success = await updateTask(id, {
         notes: draft,
         notesUpdatedAt
       });
+      if (!success) return;
       if (task) task.notes = draft;
       if (task) task.notesUpdatedAt = notesUpdatedAt;
       State.editingNoteId = null;
@@ -629,6 +968,14 @@
       if (!draft) delete State.expandedNotes[id];
       else State.expandedNotes[id] = true;
       render();
+      if (previous) {
+        queueUndoAction(draft ? 'Note saved' : 'Note removed', async () => {
+          await updateTask(id, {
+            notes: previous.notes || '',
+            notesUpdatedAt: previous.notesUpdatedAt || null
+          });
+        });
+      }
       showToast(draft ? 'Note saved' : 'Note removed');
     }
 
@@ -639,6 +986,7 @@
     /* ───────────── State ───────────── */
     const State = {
       selectedDate: getTodayString(),
+      reviewWeekStart: getWeekStart(getTodayString()),
       tasks: [],
       layoutMode: localStorage.getItem(LAYOUT_MODE_KEY) === 'board' ? 'board' : 'list',
       viewMode: 'today',
@@ -655,8 +1003,11 @@
       noteDrafts: {},
       reminderPanelOpen: false,
       activeReminderAlerts: [],
+      undoAction: null,
+      scheduledNotificationSupported: false,
       carriedExpanded: true,
-      workExpanded: true
+      workExpanded: true,
+      expandedSubtasks: {}
     };
 
     /* ───────────── Hashtag Helpers ───────────── */

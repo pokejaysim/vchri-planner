@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Daily Planner</title>
+  <meta name="theme-color" content="#6366f1">
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -20,6 +22,8 @@
       </a>
       <span class="planner-topnav-sep">/</span>
       <span class="planner-topnav-current">Planner</span>
+      <span class="planner-topnav-sep">/</span>
+      <a href="review.html" class="planner-topnav-link">Weekly Review</a>
     </nav>
 
     <!-- Header -->
@@ -89,6 +93,7 @@
           <button class="segment-btn" type="button" data-view="upcoming">Upcoming <span class="segment-count" id="count-upcoming">0</span></button>
           <button class="segment-btn" type="button" data-view="overdue">Overdue <span class="segment-count" id="count-overdue">0</span></button>
           <button class="segment-btn" type="button" data-view="done">Done <span class="segment-count" id="count-done">0</span></button>
+          <button class="segment-btn" type="button" data-view="archived">Archived <span class="segment-count" id="count-archived">0</span></button>
         </div>
       </div>
       <div class="toolbar-section">
@@ -152,6 +157,14 @@
       <div class="empty-state-title">No tasks yet</div>
       <div class="empty-state-text">Start planning your day by adding a task above!</div>
     </div>
+
+    <div class="undo-bar" id="undo-bar" hidden>
+      <div class="undo-bar-message" id="undo-message"></div>
+      <div class="undo-bar-actions">
+        <button class="undo-bar-btn" id="undo-action" type="button">Undo</button>
+        <button class="undo-bar-dismiss" id="undo-dismiss" type="button" aria-label="Dismiss undo">&times;</button>
+      </div>
+    </div>
   </div>
 
   <!-- Edit Task Modal -->
@@ -207,6 +220,11 @@
           <p class="form-help">Use notes for context, links, follow-ups, and running updates. Start a line with <code>!!</code> to highlight it. Checklist lines like <code>- [ ]</code> can be toggled on the task card.</p>
         </div>
         <div class="form-group">
+          <label class="form-label" for="edit-subtasks">Subtasks</label>
+          <textarea class="form-textarea form-textarea-subtasks" id="edit-subtasks" placeholder="- [ ] Draft agenda&#10;- [ ] Send follow-up"></textarea>
+          <p class="form-help">Use one subtask per line. Prefix a completed line with <code>- [x]</code>; incomplete lines can use <code>- [ ]</code>.</p>
+        </div>
+        <div class="form-group">
           <div class="reminder-section">
             <label class="reminder-toggle-row">
               <input type="checkbox" id="edit-reminder-toggle">
@@ -223,7 +241,7 @@
                 <input type="date" id="edit-reminder-date" title="Reminder date" aria-label="Reminder date">
                 <input type="time" id="edit-reminder-time" title="Reminder time" aria-label="Reminder time">
               </div>
-              <p class="form-help">Browser reminders fire while this tab is open. If notifications are blocked, the planner shows an in-app alert instead.</p>
+              <p class="form-help" id="reminder-support-copy">Installed browsers that support scheduled notifications can remind you in the background. Otherwise reminders fire while the planner stays open.</p>
             </div>
           </div>
         </div>

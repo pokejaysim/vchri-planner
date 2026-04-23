@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weekly Review · Daily Planner</title>
+  <meta name="theme-color" content="#6366f1">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="home.css">
+  <link rel="stylesheet" href="review.css">
+</head>
+<body class="review-body">
+  <div id="loading" style="display:none"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="reminder-alerts" class="reminder-alerts" aria-live="assertive"></div>
+
+  <div class="review-shell">
+    <header class="home-topbar">
+      <a class="home-brand" href="index.html">
+        <span class="home-brand-mark">✦</span>
+        <span class="home-brand-name">Planner</span>
+      </a>
+      <nav class="home-nav">
+        <a class="home-nav-link" href="index.html">Home</a>
+        <a class="home-nav-link" href="planner.html">Planner</a>
+        <a class="home-nav-link active" href="review.html">Review</a>
+      </nav>
+      <div class="home-topbar-right">
+        <div class="home-sync" aria-live="polite">
+          <span class="sync-dot" id="sync-dot"></span>
+          <span id="sync-text">Synced</span>
+        </div>
+        <button class="home-icon-btn" id="btn-theme" type="button" aria-label="Toggle theme" title="Toggle theme">☾</button>
+      </div>
+    </header>
+
+    <section class="review-hero">
+      <div class="review-hero-copy">
+        <div class="review-kicker">Weekly Review</div>
+        <h1 class="review-title">See the story of your week.</h1>
+        <p class="review-subtitle">Track what got done, what is carrying forward, what was archived, and where notes were most active.</p>
+      </div>
+      <div class="review-week-card">
+        <div class="review-week-head">
+          <span class="review-week-label">Current range</span>
+          <div class="review-week-range" id="review-range-label"></div>
+          <div class="review-week-subtitle" id="review-range-subtitle"></div>
+        </div>
+        <div class="review-week-actions">
+          <button class="review-week-btn" id="review-prev" type="button">← Previous</button>
+          <button class="review-week-btn" id="review-current" type="button">This week</button>
+          <button class="review-week-btn" id="review-next" type="button">Next →</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="review-summary-grid" id="review-summary"></section>
+
+    <section class="review-sections">
+      <article class="review-panel">
+        <div class="review-panel-head">
+          <div>
+            <div class="review-panel-kicker">Finished</div>
+            <h2 class="review-panel-title">Completed this week</h2>
+          </div>
+          <span class="review-panel-count" id="review-completed-count">0</span>
+        </div>
+        <div class="review-list" id="review-completed-list"></div>
+        <div class="review-empty" id="review-completed-empty">Completed tasks will show up here once you start closing things out.</div>
+      </article>
+
+      <article class="review-panel">
+        <div class="review-panel-head">
+          <div>
+            <div class="review-panel-kicker">Still open</div>
+            <h2 class="review-panel-title">Carry forward</h2>
+          </div>
+          <span class="review-panel-count" id="review-carryover-count">0</span>
+        </div>
+        <div class="review-list" id="review-carryover-list"></div>
+        <div class="review-empty" id="review-carryover-empty">Nothing is carrying forward right now.</div>
+      </article>
+
+      <article class="review-panel">
+        <div class="review-panel-head">
+          <div>
+            <div class="review-panel-kicker">Clean up</div>
+            <h2 class="review-panel-title">Archived this week</h2>
+          </div>
+          <span class="review-panel-count" id="review-archived-count">0</span>
+        </div>
+        <div class="review-list" id="review-archived-list"></div>
+        <div class="review-empty" id="review-archived-empty">Nothing has been archived this week.</div>
+      </article>
+
+      <article class="review-panel review-panel-wide">
+        <div class="review-panel-head">
+          <div>
+            <div class="review-panel-kicker">Notes</div>
+            <h2 class="review-panel-title">Recently updated notes</h2>
+          </div>
+          <a class="review-panel-link" href="planner.html">Open planner →</a>
+        </div>
+        <div class="review-list" id="review-notes-list"></div>
+        <div class="review-empty" id="review-notes-empty">No notes were updated during this review window.</div>
+      </article>
+    </section>
+
+    <div class="undo-bar" id="undo-bar" hidden>
+      <div class="undo-bar-message" id="undo-message"></div>
+      <div class="undo-bar-actions">
+        <button class="undo-bar-btn" id="undo-action" type="button">Undo</button>
+        <button class="undo-bar-dismiss" id="undo-dismiss" type="button" aria-label="Dismiss undo">&times;</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script defer src="scripts/core.js"></script>
+  <script defer src="scripts/data.js"></script>
+  <script defer src="scripts/review.js"></script>
+</body>
+</html>

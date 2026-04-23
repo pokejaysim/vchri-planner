@@ -1,5 +1,5 @@
     /* ───────────── Edit Modal ───────────── */
-    function openEditModal(task) {
+    function openEditModal(task, focusField = 'text') {
       rememberFocus();
       State.reminderPanelOpen = false;
       State.editingId = task.id;
@@ -10,6 +10,7 @@
       document.getElementById('edit-time').value = task.dueTime || '';
       document.getElementById('edit-pinned').checked = !!task.pinned;
       document.getElementById('edit-notes').value = task.notes || '';
+      document.getElementById('edit-subtasks').value = serializeSubtasksForEditor(task.subtasks);
 
       const hasReminder = !!(task.reminderDate && task.reminderTime);
       document.getElementById('edit-reminder-toggle').checked = hasReminder;
@@ -19,7 +20,13 @@
 
       document.getElementById('edit-modal').classList.add('visible');
       renderReminderPanel();
-      document.getElementById('edit-text').focus();
+      const focusMap = {
+        text: 'edit-text',
+        notes: 'edit-notes',
+        subtasks: 'edit-subtasks'
+      };
+      const target = document.getElementById(focusMap[focusField] || 'edit-text');
+      if (target) target.focus();
     }
 
     function closeEditModal() {
@@ -29,6 +36,7 @@
     }
 
     async function saveEdit() {
+      const editingId = State.editingId;
       const text = document.getElementById('edit-text').value.trim();
       if (!text) return;
 
@@ -45,12 +53,14 @@
         }
       }
 
-      const existing = State.tasks.find(t => t.id === State.editingId);
+      const existing = State.tasks.find(t => t.id === editingId);
       const reminderChanged = existing && (existing.reminderDate !== reminderDate || existing.reminderTime !== reminderTime);
       const nextNotes = document.getElementById('edit-notes').value.trim();
       const notesUpdatedAt = getNotesUpdatedAt(existing, nextNotes);
+      const nextSubtasks = parseSubtasksInput(document.getElementById('edit-subtasks').value);
+      const previous = cloneTaskSnapshot(existing);
 
-      await updateTask(State.editingId, {
+      const success = await updateTask(editingId, {
         text,
         priority: document.getElementById('edit-priority').value,
         recurrence: document.getElementById('edit-recurrence').value,
@@ -59,12 +69,19 @@
         dueTime: document.getElementById('edit-time').value || null,
         notes: nextNotes,
         notesUpdatedAt,
+        subtasks: nextSubtasks,
         reminderDate: reminderDate || null,
         reminderTime: reminderTime || null,
         reminderFired: (reminderDate && reminderTime && reminderChanged) ? false : (existing ? existing.reminderFired : false)
       });
+      if (!success) return;
       if (existing && (reminderChanged || !reminderDate || !reminderTime)) {
         dismissReminderAlert(existing.id);
+      }
+      if (previous) {
+        queueUndoAction('Task updated', async () => {
+          await updateTask(editingId, getTaskRestoreFields(previous));
+        });
       }
       closeEditModal();
       showToast('Task updated');
@@ -141,6 +158,8 @@
       State.reminderPanelOpen = false;
       if (mode === 'done') {
         State.filterStatus = 'completed';
+      } else if (mode === 'archived') {
+        State.filterStatus = '';
       } else if (State.filterStatus === 'completed') {
         State.filterStatus = '';
       }

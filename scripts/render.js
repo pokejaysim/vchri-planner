@@ -29,7 +29,8 @@
         dueSoon: getTasksForView('due-soon').primaryTasks.length,
         upcoming: getTasksForView('upcoming').primaryTasks.length,
         overdue: getTasksForView('overdue').primaryTasks.length,
-        done: getTasksForView('done').primaryTasks.length
+        done: getTasksForView('done').primaryTasks.length,
+        archived: getTasksForView('archived').primaryTasks.length
       };
 
       document.querySelectorAll('#view-toggle [data-view]').forEach(btn => {
@@ -50,17 +51,19 @@
       document.getElementById('count-upcoming').textContent = counts.upcoming;
       document.getElementById('count-overdue').textContent = counts.overdue;
       document.getElementById('count-done').textContent = counts.done;
+      document.getElementById('count-archived').textContent = counts.archived;
       document.getElementById('sort-mode').value = State.sortMode;
     }
 
     function getTasksForView(viewMode) {
-      const selectedDayTasks = State.tasks.filter(t => t.date === State.selectedDate);
+      const activeTasks = getActiveTasks();
+      const selectedDayTasks = activeTasks.filter(t => t.date === State.selectedDate);
       const carriedOver = State.selectedDate >= getTodayString()
-        ? State.tasks.filter(t => t.date < State.selectedDate && !t.completed)
+        ? activeTasks.filter(t => t.date < State.selectedDate && !t.completed)
         : [];
 
       if (viewMode === 'upcoming') {
-        const upcomingTasks = State.tasks.filter(t => !t.completed && t.date > State.selectedDate);
+        const upcomingTasks = activeTasks.filter(t => !t.completed && t.date > State.selectedDate);
         return {
           viewMode,
           primaryTasks: upcomingTasks,
@@ -84,7 +87,7 @@
       }
 
       if (viewMode === 'overdue') {
-        const overdueTasks = State.tasks.filter(isTaskOverdueForView);
+        const overdueTasks = activeTasks.filter(isTaskOverdueForView);
         return {
           viewMode,
           primaryTasks: overdueTasks,
@@ -96,7 +99,7 @@
       }
 
       if (viewMode === 'done') {
-        const doneTasks = State.tasks.filter(t => t.completed);
+        const doneTasks = activeTasks.filter(t => t.completed);
         return {
           viewMode,
           primaryTasks: doneTasks,
@@ -104,6 +107,18 @@
           progressTasks: doneTasks,
           emptyTitle: 'No completed tasks yet',
           emptyText: 'Finished work will show up here for quick review.'
+        };
+      }
+
+      if (viewMode === 'archived') {
+        const archivedTasks = getArchivedTasks();
+        return {
+          viewMode,
+          primaryTasks: archivedTasks,
+          secondaryTasks: [],
+          progressTasks: archivedTasks,
+          emptyTitle: 'No archived tasks',
+          emptyText: 'Archive completed or inactive tasks to keep them handy without cluttering the planner.'
         };
       }
 
@@ -122,13 +137,14 @@
     }
 
     function getBoardViewData() {
-      const selectedDayTasks = State.tasks.filter(task => !task.completed && task.date === State.selectedDate);
+      const activeTasks = getActiveTasks();
+      const selectedDayTasks = activeTasks.filter(task => !task.completed && task.date === State.selectedDate);
       const carriedOver = State.selectedDate >= getTodayString()
-        ? State.tasks.filter(task => !task.completed && task.date < State.selectedDate)
+        ? activeTasks.filter(task => !task.completed && task.date < State.selectedDate)
         : [];
-      const upcomingTasks = State.tasks.filter(task => !task.completed && task.date > State.selectedDate);
-      const doneTasks = State.tasks.filter(task => task.completed);
-      const pinnedTasks = State.tasks.filter(task => !task.completed && task.pinned);
+      const upcomingTasks = activeTasks.filter(task => !task.completed && task.date > State.selectedDate);
+      const doneTasks = activeTasks.filter(task => task.completed);
+      const pinnedTasks = activeTasks.filter(task => !task.completed && task.pinned);
 
       const boardFilterStatus = State.viewMode === 'done' && State.filterStatus === 'completed' ? '' : State.filterStatus;
       const filteredPinned = filterTasks(pinnedTasks, { filterStatus: boardFilterStatus });
@@ -199,7 +215,9 @@
       } else if (viewMode === 'overdue') {
         progressText = total ? total + ' overdue tasks need attention' : 'Nothing overdue right now.';
       } else if (viewMode === 'done') {
-        progressText = total ? total + ' completed tasks in your archive' : 'No completed tasks yet.';
+        progressText = total ? total + ' completed tasks ready for review' : 'No completed tasks yet.';
+      } else if (viewMode === 'archived') {
+        progressText = total ? total + ' archived tasks are tucked away for safekeeping' : 'Nothing is archived right now.';
       } else if (total) {
         progressText = done + ' of ' + total + ' tasks completed (' + pct + '%)';
       }
@@ -228,7 +246,11 @@
       return tasks.filter(t => {
         if (State.searchQuery) {
           const query = State.searchQuery.toLowerCase();
-          const haystacks = [t.text || '', t.notes || ''].map(value => value.toLowerCase());
+          const haystacks = [
+            t.text || '',
+            t.notes || '',
+            normalizeSubtasks(t.subtasks).map(subtask => subtask.text).join(' ')
+          ].map(value => value.toLowerCase());
           if (!haystacks.some(value => value.includes(query))) return false;
         }
         if (State.filterPriority && t.priority !== State.filterPriority) return false;
@@ -262,7 +284,11 @@
           const reminderDiff = getReminderSortValue(a) - getReminderSortValue(b);
           if (reminderDiff !== 0) return reminderDiff;
         }
-        if (mode === 'upcoming' || mode === 'overdue' || mode === 'done') {
+        if (mode === 'archived') {
+          const archivedDiff = new Date(b.archivedAt || b.updatedAt || b.createdAt || 0).getTime() - new Date(a.archivedAt || a.updatedAt || a.createdAt || 0).getTime();
+          if (archivedDiff !== 0) return archivedDiff;
+        }
+        if (mode === 'upcoming' || mode === 'overdue' || mode === 'done' || mode === 'archived') {
           const byDate = getDateTimeValue(a) - getDateTimeValue(b);
           if (byDate !== 0) return byDate;
         }
@@ -341,7 +367,7 @@
       const alerts = State.activeReminderAlerts
         .filter(alert => {
           const task = State.tasks.find(item => item.id === alert.taskId);
-          return !task || !task.completed;
+          return !task || (!task.completed && !task.archived);
         })
         .slice(0, 4);
 
@@ -379,15 +405,51 @@
       }).join('');
     }
 
+    function renderSubtasksHtml(task) {
+      const progress = getSubtaskProgress(task);
+      const hasSubtasks = progress.total > 0;
+      const isExpanded = !!State.expandedSubtasks[task.id];
+
+      let badgeHtml = '';
+      let bodyHtml = '';
+      let controlsHtml = '<button class="task-subtask-edit subtle" type="button" data-id="' + task.id + '">Add subtasks</button>';
+
+      if (hasSubtasks) {
+        badgeHtml = '<span class="subtask-badge">✓ ' + progress.completed + '/' + progress.total + '</span>';
+        controlsHtml =
+          '<button class="task-subtask-toggle" type="button" data-id="' + task.id + '" aria-expanded="' + isExpanded + '">' +
+            (isExpanded ? 'Hide subtasks' : 'Show subtasks') +
+          '</button>' +
+          '<span class="task-subtask-summary">' + progress.label + '</span>' +
+          '<button class="task-subtask-edit subtle" type="button" data-id="' + task.id + '">Edit subtasks</button>';
+
+        if (isExpanded) {
+          bodyHtml = '<div class="task-subtask-list">' + progress.subtasks.map(subtask => {
+            return '<button class="task-subtask-item' + (subtask.completed ? ' completed' : '') + '" type="button" data-task-id="' + task.id + '" data-subtask-id="' + subtask.id + '" aria-pressed="' + subtask.completed + '"' + (task.archived ? ' disabled' : '') + '>' +
+              '<span class="task-subtask-check">' + (subtask.completed ? '✓' : '') + '</span>' +
+              '<span class="task-subtask-text">' + escapeHtml(subtask.text) + '</span>' +
+            '</button>';
+          }).join('') + '</div>';
+        }
+      }
+
+      return {
+        badgeHtml,
+        bodyHtml,
+        controlsHtml
+      };
+    }
+
     function buildTaskCardHtml(task, isCarried) {
       const isBoard = State.layoutMode === 'board';
       const overdueClass = isOverdue(task) ? ' overdue' : '';
       const completedClass = task.completed ? ' completed' : '';
+      const archivedClass = task.archived ? ' archived' : '';
       const priorityClass = ' priority-' + task.priority;
       const carriedClass = isCarried ? ' carried' : '';
       const pinnedClass = task.pinned ? ' pinned' : '';
       const isCompact = State.densityMode === 'compact';
-      const allowManualReorder = !isBoard && State.sortMode === 'manual' && State.viewMode === 'today' && !isCarried && !task.pinned;
+      const allowManualReorder = !task.archived && !isBoard && State.sortMode === 'manual' && State.viewMode === 'today' && !isCarried && !task.pinned;
 
       // Extract hashtags and clean text
       const hashtags = extractHashtags(task.text);
@@ -397,6 +459,7 @@
       const isNotesExpanded = !!State.expandedNotes[task.id];
       const isEditingNote = State.editingNoteId === task.id;
       const noteDraft = isEditingNote ? (State.noteDrafts[task.id] ?? noteText) : noteText;
+      const subtasksView = renderSubtasksHtml(task);
 
       let timeHtml = '';
       if (task.dueTime) {
@@ -417,6 +480,11 @@
         const originDate = new Date(task.date + 'T12:00:00');
         const shortDate = originDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         carriedBadge = '<span class="carried-badge">from ' + shortDate + '</span>';
+      }
+
+      let archivedBadge = '';
+      if (task.archived) {
+        archivedBadge = '<span class="archived-badge">Archived</span>';
       }
 
       let pinnedBadge = '';
@@ -454,6 +522,7 @@
       let notePreviewHtml = '';
       let noteFullHtml = '';
       let noteControlsHtml = '';
+      let subtaskControlsHtml = subtasksView.controlsHtml;
       let noteTimestampHtml = '';
       if (hasNotes && task.notesUpdatedAt) {
         noteTimestampHtml = '<span class="note-updated">Updated ' + escapeHtml(formatRelativeTime(task.notesUpdatedAt)) + '</span>';
@@ -499,31 +568,38 @@
         ? '<button class="move-today-btn" type="button" data-id="' + task.id + '" title="Move to today" aria-label="Move task to today">➡</button>'
         : '';
 
-      return '<div class="task-card' + priorityClass + completedClass + carriedClass + pinnedClass + '" data-task-id="' + task.id + '" draggable="' + allowManualReorder + '">' +
+      const taskActionsHtml = task.archived
+        ? '<button class="task-action-btn restore" type="button" data-id="' + task.id + '" title="Restore task" aria-label="Restore task">↺</button>' +
+          '<button class="task-action-btn delete" type="button" data-id="' + task.id + '" title="Delete permanently" aria-label="Delete task permanently">✖</button>'
+        : '<button class="task-action-btn pin' + (task.pinned ? ' active' : '') + '" type="button" data-id="' + task.id + '" title="' + (task.pinned ? 'Remove from Top priorities' : 'Add to Top priorities') + '" aria-label="' + (task.pinned ? 'Remove from Top priorities' : 'Add to Top priorities') + '">★</button>' +
+          '<button class="task-action-btn edit" type="button" data-id="' + task.id + '" title="Edit" aria-label="Edit task">✎</button>' +
+          '<button class="task-action-btn archive" type="button" data-id="' + task.id + '" title="Archive" aria-label="Archive task">🗃</button>';
+
+      return '<div class="task-card' + priorityClass + completedClass + archivedClass + carriedClass + pinnedClass + '" data-task-id="' + task.id + '" draggable="' + allowManualReorder + '">' +
         (allowManualReorder ? '<span class="drag-handle" title="Drag to reorder">☰</span>' : '') +
         (allowManualReorder ? '<div class="reorder-buttons">' +
           '<button class="reorder-btn" type="button" data-dir="up" data-id="' + task.id + '" aria-label="Move task up">▲</button>' +
           '<button class="reorder-btn" type="button" data-dir="down" data-id="' + task.id + '" aria-label="Move task down">▼</button>' +
         '</div>' : '') +
         '<div class="task-main">' +
-          '<button class="task-checkbox" type="button" data-id="' + task.id + '" aria-pressed="' + task.completed + '" aria-label="' + (task.completed ? 'Mark task incomplete' : 'Mark task complete') + '"></button>' +
+          '<button class="task-checkbox" type="button" data-id="' + task.id + '" aria-pressed="' + task.completed + '" aria-label="' + (task.completed ? 'Mark task incomplete' : 'Mark task complete') + '"' + (task.archived ? ' disabled' : '') + '></button>' +
           '<div class="task-content">' +
             '<div class="task-text">' + escapeHtml(cleanText || task.text) + '</div>' +
             '<div class="task-meta">' +
               '<span class="priority-pill ' + task.priority + '">' +
                 (task.priority === 'high' ? '! ' : '') + task.priority.charAt(0).toUpperCase() + task.priority.slice(1) +
               '</span>' +
-              pinnedBadge + recurringBadge + noteBadge + hashtagHtml + boardStateBadges + timeHtml + reminderBadge + carriedBadge +
+              pinnedBadge + recurringBadge + noteBadge + subtasksView.badgeHtml + archivedBadge + hashtagHtml + boardStateBadges + timeHtml + reminderBadge + carriedBadge +
             '</div>' +
             notePreviewHtml +
             noteFullHtml +
+            subtasksView.bodyHtml +
+            '<div class="task-subtask-controls">' + subtaskControlsHtml + '</div>' +
             '<div class="task-note-controls">' + noteControlsHtml + '</div>' +
           '</div>' +
           '<div class="task-actions">' +
             moveBtn +
-            '<button class="task-action-btn pin' + (task.pinned ? ' active' : '') + '" type="button" data-id="' + task.id + '" title="' + (task.pinned ? 'Remove from Top priorities' : 'Add to Top priorities') + '" aria-label="' + (task.pinned ? 'Remove from Top priorities' : 'Add to Top priorities') + '">★</button>' +
-            '<button class="task-action-btn edit" type="button" data-id="' + task.id + '" title="Edit" aria-label="Edit task">✎</button>' +
-            '<button class="task-action-btn delete" type="button" data-id="' + task.id + '" title="Delete" aria-label="Delete task">✖</button>' +
+            taskActionsHtml +
           '</div>' +
         '</div>' +
       '</div>';
@@ -599,7 +675,7 @@
       carriedTasks = carriedTasks || [];
       const taskList = document.getElementById('task-list');
       const emptyState = document.getElementById('empty-state');
-      const activePinned = State.viewMode !== 'done'
+      const activePinned = State.viewMode !== 'done' && State.viewMode !== 'archived'
         ? todayTasks.concat(carriedTasks).filter(t => t.pinned && !t.completed)
         : [];
       const pinnedIds = new Set(activePinned.map(t => t.id));
