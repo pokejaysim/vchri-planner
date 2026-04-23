@@ -1,4 +1,4 @@
-const PLANNER_CACHE = 'vchri-planner-shell-v1';
+const PLANNER_CACHE = 'vchri-planner-shell-v2';
 const PLANNER_ASSETS = [
   './',
   'index.html',
@@ -40,10 +40,19 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
+  const isDynamicShellAsset =
+    event.request.mode === 'navigate' ||
+    event.request.destination === 'style' ||
+    event.request.destination === 'script' ||
+    url.pathname.endsWith('.webmanifest');
 
-  if (event.request.mode === 'navigate') {
+  if (isDynamicShellAsset) {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(url.pathname.replace(/^\//, '')) || caches.match('index.html'))
+      fetch(event.request).then(response => {
+        const clone = response.clone();
+        caches.open(PLANNER_CACHE).then(cache => cache.put(event.request, clone));
+        return response;
+      }).catch(() => caches.match(event.request) || caches.match(url.pathname.replace(/^\//, '')) || caches.match('index.html'))
     );
     return;
   }
