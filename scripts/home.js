@@ -11,13 +11,18 @@
     /* ── Clock ── */
     function renderClock() {
       const now = new Date();
-      const hh = String(now.getHours()).padStart(2, '0');
-      const mm = String(now.getMinutes()).padStart(2, '0');
-      const ss = String(now.getSeconds()).padStart(2, '0');
+      const timeParts = new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }).formatToParts(now);
+      const hour = timeParts.find(part => part.type === 'hour')?.value || '--';
+      const minute = timeParts.find(part => part.type === 'minute')?.value || '--';
+      const dayPeriod = timeParts.find(part => part.type === 'dayPeriod')?.value || '';
       const timeEl = document.getElementById('home-time');
-      if (timeEl) timeEl.textContent = hh + ':' + mm;
+      if (timeEl) timeEl.textContent = hour + ':' + minute;
       const secEl = document.getElementById('home-time-sec');
-      if (secEl) secEl.textContent = ss;
+      if (secEl) secEl.textContent = dayPeriod;
       const dateEl = document.getElementById('home-date');
       if (dateEl) {
         dateEl.textContent = now.toLocaleDateString('en-US', {
