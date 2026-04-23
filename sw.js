@@ -1,15 +1,18 @@
-const PLANNER_CACHE = 'vchri-planner-shell-v2';
+const PLANNER_CACHE = 'vchri-planner-shell-v3';
 const PLANNER_ASSETS = [
   './',
   'index.html',
   'planner.html',
   'review.html',
+  'contracts.html',
   'styles.css',
   'home.css',
   'review.css',
+  'contracts.css',
   'manifest.webmanifest',
   'scripts/core.js',
   'scripts/data.js',
+  'scripts/contracts.js',
   'scripts/features.js',
   'scripts/home.js',
   'scripts/main.js',

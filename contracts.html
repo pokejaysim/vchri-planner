@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contracts · Daily Planner</title>
+  <meta name="theme-color" content="#6366f1">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="home.css">
+  <link rel="stylesheet" href="contracts.css">
+</head>
+<body class="contracts-body">
+  <div id="loading" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Loading contracts...</div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="reminder-alerts" class="reminder-alerts" aria-live="assertive"></div>
+
+  <div class="contracts-shell">
+    <header class="home-topbar">
+      <a class="home-brand" href="index.html">
+        <span class="home-brand-mark">✦</span>
+        <span class="home-brand-name">Planner</span>
+      </a>
+      <nav class="home-nav">
+        <a class="home-nav-link" href="index.html">Home</a>
+        <a class="home-nav-link" href="planner.html">Planner</a>
+        <a class="home-nav-link" href="review.html">Review</a>
+        <a class="home-nav-link active" href="contracts.html">Contracts</a>
+      </nav>
+      <div class="home-topbar-right">
+        <div class="home-sync" aria-live="polite">
+          <span class="sync-dot" id="sync-dot"></span>
+          <span id="sync-text">Synced</span>
+        </div>
+        <button class="home-icon-btn" id="btn-theme" type="button" aria-label="Toggle theme" title="Toggle theme">☾</button>
+      </div>
+    </header>
+
+    <section class="contracts-hero">
+      <div class="contracts-hero-copy">
+        <div class="contracts-kicker">Contract Tracker</div>
+        <h1 class="contracts-title">See every agreement moving through the pipeline.</h1>
+        <p class="contracts-subtitle">Track counterparties, custom workflow stages, dates, owners, and linked files from a single kanban board.</p>
+      </div>
+      <div class="contracts-hero-stats">
+        <article class="contracts-stat-card">
+          <div class="contracts-stat-label">Active contracts</div>
+          <div class="contracts-stat-value" id="contracts-stat-active">0</div>
+          <div class="contracts-stat-detail">Open items across active columns</div>
+        </article>
+        <article class="contracts-stat-card">
+          <div class="contracts-stat-label">Renewals soon</div>
+          <div class="contracts-stat-value" id="contracts-stat-renewals">0</div>
+          <div class="contracts-stat-detail">Renewing within the next 30 days</div>
+        </article>
+        <article class="contracts-stat-card">
+          <div class="contracts-stat-label">Linked files</div>
+          <div class="contracts-stat-value" id="contracts-stat-files">0</div>
+          <div class="contracts-stat-detail">Supporting documents attached to contracts</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="contracts-toolbar">
+      <div class="contracts-toolbar-group contracts-toolbar-group-search">
+        <label class="contracts-toolbar-label" for="contract-search">Search</label>
+        <input id="contract-search" class="contracts-toolbar-input" type="text" placeholder="Search contracts, notes, tags, or files">
+      </div>
+      <div class="contracts-toolbar-group">
+        <label class="contracts-toolbar-label" for="contract-filter-tag">Tag</label>
+        <select id="contract-filter-tag" class="contracts-toolbar-select">
+          <option value="">All tags</option>
+        </select>
+      </div>
+      <div class="contracts-toolbar-group">
+        <label class="contracts-toolbar-label" for="contract-filter-owner">Owner</label>
+        <select id="contract-filter-owner" class="contracts-toolbar-select">
+          <option value="">All owners</option>
+        </select>
+      </div>
+      <div class="contracts-toolbar-actions">
+        <button class="btn btn-secondary" id="contracts-clear-filters" type="button">Clear filters</button>
+        <button class="btn btn-secondary" id="contract-board-settings-btn" type="button">Board settings</button>
+        <button class="btn btn-primary" id="contract-new-btn" type="button">+ New contract</button>
+      </div>
+    </section>
+
+    <section class="contracts-board-shell">
+      <div class="contracts-board" id="contracts-board" aria-live="polite"></div>
+      <div class="contracts-empty-state" id="contracts-empty-state" hidden>
+        <div class="contracts-empty-icon">🗂</div>
+        <div class="contracts-empty-title">No contracts match these filters</div>
+        <div class="contracts-empty-text">Clear the filters or add a new contract to get the board moving.</div>
+      </div>
+    </section>
+
+    <div class="contracts-panel-scrim" id="contracts-panel-scrim" hidden></div>
+    <aside class="contracts-panel" id="contracts-panel" hidden aria-hidden="true">
+      <div class="contracts-panel-content" id="contracts-panel-content"></div>
+    </aside>
+
+    <div class="contracts-settings-overlay" id="contracts-settings-overlay" hidden>
+      <div class="contracts-settings-modal" id="contracts-settings-modal" role="dialog" aria-modal="true" aria-labelledby="contracts-settings-title">
+        <div class="contracts-settings-content" id="contracts-settings-content"></div>
+      </div>
+    </div>
+
+    <div class="undo-bar" id="undo-bar" hidden>
+      <div class="undo-bar-message" id="undo-message"></div>
+      <div class="undo-bar-actions">
+        <button class="undo-bar-btn" id="undo-action" type="button">Undo</button>
+        <button class="undo-bar-dismiss" id="undo-dismiss" type="button" aria-label="Dismiss undo">&times;</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script defer src="scripts/core.js"></script>
+  <script defer src="scripts/data.js"></script>
+  <script defer src="scripts/contracts.js"></script>
+</body>
+</html>

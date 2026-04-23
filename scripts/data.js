@@ -216,6 +216,490 @@
       return true;
     }
 
+    /* ───────────── Contracts Module ───────────── */
+    const CONTRACTS_COLLECTION = 'contracts';
+    const CONTRACTS_BOARD_SETTINGS_DOC = 'contracts_board';
+    const CONTRACT_ARCHIVED_COLUMN_ID = 'archived';
+    const DEFAULT_CONTRACT_COLUMNS = [
+      { id: 'intake', label: 'Intake', color: '#7c3aed', order: 0 },
+      { id: 'reviewing', label: 'Reviewing', color: '#2563eb', order: 1 },
+      { id: 'waiting-on', label: 'Waiting On', color: '#d97706', order: 2 },
+      { id: 'signed', label: 'Signed', color: '#059669', order: 3 },
+      { id: CONTRACT_ARCHIVED_COLUMN_ID, label: 'Archived', color: '#6b7280', order: 4 }
+    ];
+
+    function getDefaultContractBoardSettings() {
+      return {
+        columns: DEFAULT_CONTRACT_COLUMNS.map(column => ({ ...column })),
+        tags: []
+      };
+    }
+
+    function getContractsState() {
+      if (!window.ContractsState) {
+        window.ContractsState = {
+          contracts: [],
+          boardSettings: getDefaultContractBoardSettings(),
+          contractsLoaded: false,
+          settingsLoaded: false
+        };
+      }
+      return window.ContractsState;
+    }
+
+    function normalizeContractFile(file) {
+      if (!file) return null;
+      const label = String(file.label || '').trim();
+      const url = String(file.url || '').trim();
+      if (!label || !url) return null;
+      return {
+        id: file.id || createId('contract-file'),
+        label,
+        url,
+        type: String(file.type || '').trim(),
+        note: String(file.note || '').trim(),
+        addedAt: file.addedAt || getCurrentTimestamp()
+      };
+    }
+
+    function normalizeContractBoardSettings(settings) {
+      const defaults = getDefaultContractBoardSettings();
+      const sourceColumns = Array.isArray(settings && settings.columns) ? settings.columns : defaults.columns;
+      const sourceTags = Array.isArray(settings && settings.tags) ? settings.tags : [];
+
+      const columns = sourceColumns
+        .map((column, index) => {
+          if (!column) return null;
+          const id = String(column.id || '').trim() || createId('contract-column');
+          const label = String(column.label || '').trim() || 'Untitled column';
+          const fallback = defaults.columns.find(item => item.id === id);
+          return {
+            id,
+            label,
+            color: String(column.color || (fallback && fallback.color) || '#6366f1').trim(),
+            order: typeof column.order === 'number' ? column.order : index
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.order - b.order);
+
+      const archivedColumn = columns.find(column => column.id === CONTRACT_ARCHIVED_COLUMN_ID);
+      const activeColumns = columns.filter(column => column.id !== CONTRACT_ARCHIVED_COLUMN_ID);
+      if (!activeColumns.length) {
+        defaults.columns
+          .filter(column => column.id !== CONTRACT_ARCHIVED_COLUMN_ID)
+          .slice(0, 1)
+          .forEach(column => {
+            activeColumns.push({ ...column });
+          });
+      }
+
+      const normalizedColumns = activeColumns.map((column, index) => ({
+        ...column,
+        order: index
+      }));
+
+      normalizedColumns.push({
+        ...(archivedColumn || defaults.columns.find(column => column.id === CONTRACT_ARCHIVED_COLUMN_ID)),
+        id: CONTRACT_ARCHIVED_COLUMN_ID,
+        order: normalizedColumns.length
+      });
+
+      const tags = sourceTags
+        .map((tag, index) => {
+          if (!tag) return null;
+          const id = String(tag.id || '').trim() || createId('contract-tag');
+          const label = String(tag.label || '').trim();
+          if (!label) return null;
+          return {
+            id,
+            label,
+            color: String(tag.color || '#6366f1').trim(),
+            order: typeof tag.order === 'number' ? tag.order : index
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.order - b.order)
+        .map((tag, index) => ({
+          id: tag.id,
+          label: tag.label,
+          color: tag.color,
+          order: index
+        }));
+
+      return { columns: normalizedColumns, tags };
+    }
+
+    function normalizeContract(contract) {
+      const fallbackSettings = normalizeContractBoardSettings(getContractsState().boardSettings);
+      const firstActiveColumn = fallbackSettings.columns.find(column => column.id !== CONTRACT_ARCHIVED_COLUMN_ID);
+      const requestedColumnId = String(contract && contract.columnId || '').trim();
+      const archived = !!(contract && contract.archived) || requestedColumnId === CONTRACT_ARCHIVED_COLUMN_ID;
+      const columnId = archived
+        ? CONTRACT_ARCHIVED_COLUMN_ID
+        : (requestedColumnId || (firstActiveColumn && firstActiveColumn.id) || DEFAULT_CONTRACT_COLUMNS[0].id);
+
+      return {
+        id: contract && contract.id,
+        title: String(contract && contract.title || '').trim(),
+        counterparty: String(contract && contract.counterparty || '').trim(),
+        owner: String(contract && contract.owner || '').trim(),
+        columnId,
+        previousColumnId: archived
+          ? (String(contract && contract.previousColumnId || '').trim() || (firstActiveColumn && firstActiveColumn.id) || DEFAULT_CONTRACT_COLUMNS[0].id)
+          : columnId,
+        sortOrder: typeof (contract && contract.sortOrder) === 'number' ? contract.sortOrder : 0,
+        tags: Array.isArray(contract && contract.tags)
+          ? [...new Set(contract.tags.map(tag => String(tag || '').trim()).filter(Boolean))]
+          : [],
+        effectiveDate: contract && contract.effectiveDate ? String(contract.effectiveDate) : null,
+        renewalDate: contract && contract.renewalDate ? String(contract.renewalDate) : null,
+        statusNote: String(contract && contract.statusNote || '').trim(),
+        notes: String(contract && contract.notes || '').trim(),
+        archived,
+        archivedAt: archived ? ((contract && contract.archivedAt) || getCurrentTimestamp()) : null,
+        createdAt: contract && contract.createdAt || null,
+        updatedAt: contract && contract.updatedAt || contract && contract.createdAt || null,
+        files: Array.isArray(contract && contract.files)
+          ? contract.files.map(normalizeContractFile).filter(Boolean)
+          : []
+      };
+    }
+
+    function cloneContractSnapshot(contract) {
+      return JSON.parse(JSON.stringify(contract || {}));
+    }
+
+    function getContractColumnContracts(columnId, contracts = getContractsState().contracts) {
+      if (columnId === CONTRACT_ARCHIVED_COLUMN_ID) {
+        return contracts.filter(contract => contract.archived).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      }
+      return contracts
+        .filter(contract => !contract.archived && contract.columnId === columnId)
+        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    }
+
+    function getNextContractSortOrder(columnId, contracts = getContractsState().contracts) {
+      const columnContracts = getContractColumnContracts(columnId, contracts);
+      return columnContracts.length
+        ? Math.max(...columnContracts.map(contract => contract.sortOrder || 0)) + 1
+        : 0;
+    }
+
+    function hideContractsLoadingIfReady() {
+      const state = getContractsState();
+      if (!state.contractsLoaded || !state.settingsLoaded) return;
+      const loading = document.getElementById('loading');
+      if (loading) loading.style.display = 'none';
+    }
+
+    function renderContractsIfAvailable() {
+      if (typeof renderContracts === 'function') {
+        renderContracts();
+      }
+    }
+
+    function setupContractsRealtimeSync() {
+      const state = getContractsState();
+      setSyncStatus('syncing');
+
+      db.collection(CONTRACTS_COLLECTION).onSnapshot(snapshot => {
+        state.contracts = snapshot.docs
+          .map(doc => normalizeContract({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        state.contractsLoaded = true;
+        setSyncStatus('synced');
+        hideContractsLoadingIfReady();
+        renderContractsIfAvailable();
+      }, error => {
+        console.error('Contracts realtime error:', error);
+        state.contractsLoaded = true;
+        setSyncStatus('offline');
+        hideContractsLoadingIfReady();
+        showToast('Failed to load contracts');
+      });
+
+      db.collection('settings').doc(CONTRACTS_BOARD_SETTINGS_DOC).onSnapshot(doc => {
+        state.boardSettings = normalizeContractBoardSettings(doc.exists ? doc.data() : null);
+        state.settingsLoaded = true;
+        setSyncStatus('synced');
+        hideContractsLoadingIfReady();
+        renderContractsIfAvailable();
+      }, error => {
+        console.error('Contract settings realtime error:', error);
+        state.settingsLoaded = true;
+        state.boardSettings = normalizeContractBoardSettings(null);
+        setSyncStatus('offline');
+        hideContractsLoadingIfReady();
+        showToast('Failed to load contract board settings');
+      });
+    }
+
+    async function addContractRecord(contract, options = {}) {
+      try {
+        setSyncStatus('syncing');
+        const state = getContractsState();
+        const timestamp = getCurrentTimestamp();
+        const normalized = normalizeContract({
+          ...contract,
+          createdAt: contract.createdAt || timestamp,
+          updatedAt: timestamp
+        });
+        normalized.sortOrder = getNextContractSortOrder(normalized.columnId, state.contracts);
+        const { id, ...payload } = normalized;
+        const docRef = await db.collection(CONTRACTS_COLLECTION).add(payload);
+        setSyncStatus('synced');
+        if (!options.skipToast) showToast(options.toastMessage || 'Contract added');
+        return docRef.id;
+      } catch (error) {
+        console.error('Add contract error:', error);
+        setSyncStatus('offline');
+        if (!options.skipToast) showToast('Failed to add contract');
+        return null;
+      }
+    }
+
+    async function updateContractRecord(id, updates, options = {}) {
+      try {
+        setSyncStatus('syncing');
+        const state = getContractsState();
+        const existing = options.existingContract || state.contracts.find(contract => contract.id === id);
+        if (!existing) throw new Error('Contract not found: ' + id);
+
+        const incomingColumnId = Object.prototype.hasOwnProperty.call(updates, 'columnId')
+          ? updates.columnId
+          : existing.columnId;
+        const incomingArchived = Object.prototype.hasOwnProperty.call(updates, 'archived')
+          ? !!updates.archived
+          : existing.archived;
+        const nextColumnId = incomingArchived ? CONTRACT_ARCHIVED_COLUMN_ID : incomingColumnId;
+        const movingColumns = nextColumnId !== (existing.archived ? CONTRACT_ARCHIVED_COLUMN_ID : existing.columnId);
+
+        const payload = {
+          ...updates,
+          columnId: nextColumnId,
+          archived: incomingArchived,
+          updatedAt: getCurrentTimestamp()
+        };
+
+        if (incomingArchived && !existing.archived) {
+          payload.archivedAt = payload.archivedAt || getCurrentTimestamp();
+          payload.previousColumnId = existing.columnId;
+        } else if (!incomingArchived && existing.archived) {
+          payload.archivedAt = null;
+          payload.previousColumnId = nextColumnId;
+        } else if (!incomingArchived && nextColumnId) {
+          payload.previousColumnId = nextColumnId;
+        }
+
+        if (movingColumns && !Object.prototype.hasOwnProperty.call(payload, 'sortOrder')) {
+          payload.sortOrder = getNextContractSortOrder(nextColumnId, state.contracts.filter(contract => contract.id !== id));
+        }
+
+        await db.collection(CONTRACTS_COLLECTION).doc(id).update(payload);
+        setSyncStatus('synced');
+        if (!options.skipToast) showToast(options.toastMessage || 'Contract updated');
+        return true;
+      } catch (error) {
+        console.error('Update contract error:', error);
+        setSyncStatus('offline');
+        if (!options.skipToast) showToast('Failed to update contract');
+        return false;
+      }
+    }
+
+    async function restoreContractSnapshot(contractSnapshot, options = {}) {
+      if (!contractSnapshot || !contractSnapshot.id) return false;
+      try {
+        setSyncStatus('syncing');
+        const { id, ...payload } = normalizeContract(contractSnapshot);
+        await db.collection(CONTRACTS_COLLECTION).doc(id).set(payload);
+        setSyncStatus('synced');
+        if (!options.skipToast) showToast(options.toastMessage || 'Contract restored');
+        return true;
+      } catch (error) {
+        console.error('Restore contract error:', error);
+        setSyncStatus('offline');
+        if (!options.skipToast) showToast('Failed to restore contract');
+        return false;
+      }
+    }
+
+    async function deleteContractRecord(id, options = {}) {
+      try {
+        setSyncStatus('syncing');
+        await db.collection(CONTRACTS_COLLECTION).doc(id).delete();
+        setSyncStatus('synced');
+        if (!options.skipToast) showToast(options.toastMessage || 'Contract deleted');
+        return true;
+      } catch (error) {
+        console.error('Delete contract error:', error);
+        setSyncStatus('offline');
+        if (!options.skipToast) showToast('Failed to delete contract');
+        return false;
+      }
+    }
+
+    async function deleteContractRecordWithUndo(contract) {
+      if (!contract) return false;
+      const snapshot = cloneContractSnapshot(contract);
+      const success = await deleteContractRecord(contract.id, { skipToast: true });
+      if (!success) return false;
+      queueUndoAction('Contract deleted', async () => {
+        await restoreContractSnapshot(snapshot, { skipToast: true });
+      });
+      showToast('Contract deleted');
+      return true;
+    }
+
+    async function saveContractRecord(contractDraft, existingContract = null) {
+      const timestamp = getCurrentTimestamp();
+      const normalized = normalizeContract({
+        ...contractDraft,
+        updatedAt: timestamp,
+        createdAt: existingContract ? existingContract.createdAt : timestamp
+      });
+      if (!normalized.title) {
+        showToast('Add a contract title before saving');
+        return null;
+      }
+
+      if (!existingContract) {
+        return addContractRecord(normalized);
+      }
+
+      const payload = {
+        title: normalized.title,
+        counterparty: normalized.counterparty,
+        owner: normalized.owner,
+        columnId: normalized.columnId,
+        previousColumnId: normalized.archived
+          ? (existingContract.archived ? existingContract.previousColumnId : existingContract.columnId)
+          : normalized.columnId,
+        tags: normalized.tags,
+        effectiveDate: normalized.effectiveDate,
+        renewalDate: normalized.renewalDate,
+        statusNote: normalized.statusNote,
+        notes: normalized.notes,
+        archived: normalized.archived,
+        archivedAt: normalized.archived ? (existingContract.archivedAt || timestamp) : null,
+        files: normalized.files
+      };
+
+      const success = await updateContractRecord(existingContract.id, payload, {
+        existingContract,
+        toastMessage: 'Contract saved'
+      });
+      return success ? existingContract.id : null;
+    }
+
+    async function moveContractRecord(contractId, targetColumnId, targetId = null, position = 'after') {
+      const state = getContractsState();
+      const dragged = state.contracts.find(contract => contract.id === contractId);
+      if (!dragged) return false;
+
+      const sourceColumnId = dragged.archived ? CONTRACT_ARCHIVED_COLUMN_ID : dragged.columnId;
+      const nextArchived = targetColumnId === CONTRACT_ARCHIVED_COLUMN_ID;
+      const nextColumnId = nextArchived ? CONTRACT_ARCHIVED_COLUMN_ID : targetColumnId;
+
+      const sourceContracts = getContractColumnContracts(sourceColumnId, state.contracts).filter(contract => contract.id !== dragged.id);
+      const targetContractsBase = sourceColumnId === nextColumnId
+        ? sourceContracts.slice()
+        : getContractColumnContracts(nextColumnId, state.contracts).filter(contract => contract.id !== dragged.id);
+
+      let insertIndex = targetContractsBase.length;
+      if (targetId) {
+        const targetIndex = targetContractsBase.findIndex(contract => contract.id === targetId);
+        if (targetIndex >= 0) {
+          insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
+        }
+      }
+
+      if (insertIndex < 0) insertIndex = 0;
+      if (insertIndex > targetContractsBase.length) insertIndex = targetContractsBase.length;
+
+      const draggedNext = normalizeContract({
+        ...dragged,
+        columnId: nextColumnId,
+        archived: nextArchived,
+        archivedAt: nextArchived ? (dragged.archivedAt || getCurrentTimestamp()) : null,
+        previousColumnId: nextArchived ? (dragged.archived ? dragged.previousColumnId : dragged.columnId) : nextColumnId
+      });
+
+      const targetContracts = targetContractsBase.slice();
+      targetContracts.splice(insertIndex, 0, draggedNext);
+
+      try {
+        setSyncStatus('syncing');
+        const batch = db.batch();
+        const timestamp = getCurrentTimestamp();
+        const changedIds = new Set();
+
+        targetContracts.forEach((contract, index) => {
+          const nextValues = {
+            columnId: nextColumnId,
+            archived: nextArchived,
+            archivedAt: nextArchived ? (contract.archivedAt || timestamp) : null,
+            previousColumnId: nextArchived ? (contract.previousColumnId || dragged.columnId || contract.columnId) : nextColumnId,
+            sortOrder: index,
+            updatedAt: timestamp
+          };
+          const currentColumnId = contract.archived ? CONTRACT_ARCHIVED_COLUMN_ID : contract.columnId;
+          if (
+            currentColumnId !== nextColumnId ||
+            contract.archived !== nextArchived ||
+            (contract.sortOrder || 0) !== index ||
+            (nextArchived && !contract.archivedAt) ||
+            (!nextArchived && contract.archivedAt)
+          ) {
+            changedIds.add(contract.id);
+            batch.update(db.collection(CONTRACTS_COLLECTION).doc(contract.id), nextValues);
+          }
+        });
+
+        if (sourceColumnId !== nextColumnId) {
+          sourceContracts.forEach((contract, index) => {
+            if ((contract.sortOrder || 0) === index) return;
+            changedIds.add(contract.id);
+            batch.update(db.collection(CONTRACTS_COLLECTION).doc(contract.id), {
+              sortOrder: index,
+              updatedAt: timestamp
+            });
+          });
+        }
+
+        if (!changedIds.size) {
+          setSyncStatus('synced');
+          return true;
+        }
+
+        await batch.commit();
+        setSyncStatus('synced');
+        return true;
+      } catch (error) {
+        console.error('Move contract error:', error);
+        setSyncStatus('offline');
+        showToast('Failed to move contract');
+        return false;
+      }
+    }
+
+    async function saveContractBoardSettings(settings, options = {}) {
+      try {
+        setSyncStatus('syncing');
+        const normalized = normalizeContractBoardSettings(settings);
+        await db.collection('settings').doc(CONTRACTS_BOARD_SETTINGS_DOC).set(normalized);
+        setSyncStatus('synced');
+        if (!options.skipToast) showToast(options.toastMessage || 'Board settings saved');
+        return true;
+      } catch (error) {
+        console.error('Save contract board settings error:', error);
+        setSyncStatus('offline');
+        if (!options.skipToast) showToast('Failed to save board settings');
+        return false;
+      }
+    }
+
     let scheduledReminderSyncTimer = null;
 
     function queueScheduledReminderSync() {

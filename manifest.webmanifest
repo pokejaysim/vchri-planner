@@ -5,7 +5,21 @@
   "display": "standalone",
   "background_color": "#faf5ff",
   "theme_color": "#6366f1",
-  "description": "A daily planner for VCHRI tasks, notes, reminders, and weekly reviews.",
+  "description": "A daily planner for VCHRI tasks, contracts, notes, reminders, and weekly reviews.",
+  "shortcuts": [
+    {
+      "name": "Planner",
+      "url": "planner.html"
+    },
+    {
+      "name": "Contracts",
+      "url": "contracts.html"
+    },
+    {
+      "name": "Weekly Review",
+      "url": "review.html"
+    }
+  ],
   "icons": [
     {
       "src": "assets/planner-icon.svg",
