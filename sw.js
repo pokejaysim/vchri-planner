@@ -1,4 +1,4 @@
-const PLANNER_CACHE = 'vchri-planner-shell-v3';
+const PLANNER_CACHE = 'vchri-planner-shell-v4';
 const PLANNER_ASSETS = [
   './',
   'index.html',

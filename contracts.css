@@ -632,6 +632,12 @@
   padding: 20px;
 }
 
+.contracts-settings-overlay[hidden],
+.contracts-panel-scrim[hidden],
+.contracts-panel[hidden] {
+  display: none !important;
+}
+
 .contracts-settings-modal {
   width: min(940px, 100%);
   max-height: min(90vh, 900px);
