@@ -18,7 +18,8 @@
     editingFileId: null,
     settingsOpen: false,
     settingsDraft: null,
-    draggedContractId: null
+    draggedContractId: null,
+    suppressCardOpen: false
   };
   window.ContractsState = ContractsState;
 
@@ -877,10 +878,14 @@
     document.querySelectorAll('.contract-card').forEach(card => {
       const contractId = card.dataset.contractId;
       card.addEventListener('dragstart', event => {
+        ContractsState.suppressCardOpen = true;
         ContractsState.draggedContractId = contractId;
         if (event.dataTransfer) {
           event.dataTransfer.effectAllowed = 'move';
           event.dataTransfer.setData('text/plain', contractId);
+          if (typeof event.dataTransfer.setDragImage === 'function') {
+            event.dataTransfer.setDragImage(card, 24, 24);
+          }
         }
         requestAnimationFrame(() => card.classList.add('dragging'));
       });
@@ -913,7 +918,12 @@
         await moveContractRecord(ContractsState.draggedContractId, targetColumnId, contractId, before ? 'before' : 'after');
         clearContractDragState();
       });
-      card.addEventListener('dragend', clearContractDragState);
+      card.addEventListener('dragend', () => {
+        clearContractDragState();
+        window.setTimeout(() => {
+          ContractsState.suppressCardOpen = false;
+        }, 80);
+      });
     });
 
     document.querySelectorAll('[data-column-drop]').forEach(body => {
@@ -981,6 +991,10 @@
 
       const contractCard = event.target.closest('.contract-card');
       if (contractCard) {
+        if (ContractsState.suppressCardOpen) {
+          event.preventDefault();
+          return;
+        }
         const contract = ContractsState.contracts.find(item => item.id === contractCard.dataset.contractId);
         if (contract) openContractPanel(contract);
         return;
