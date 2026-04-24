@@ -5,12 +5,19 @@
       renderReminderPanel();
       renderReminderAlerts();
 
-      const viewData = State.layoutMode === 'board' ? getBoardViewData() : getTasksForActiveView();
+      const effectiveLayoutMode = getEffectiveLayoutMode();
+      const todayTasksView = getTasksForView('today');
+      const viewData = effectiveLayoutMode === 'board' ? getBoardViewData() : getTasksForActiveView();
 
-      renderProgress(viewData.progressTasks, viewData.viewMode);
-      if (State.layoutMode === 'board') {
-        renderTaskBoard(viewData);
+      if (effectiveLayoutMode === 'today') {
+        renderProgress(todayTasksView.progressTasks, 'today-workspace');
+        renderTodayWorkspace();
       } else {
+        renderProgress(viewData.progressTasks, viewData.viewMode);
+      }
+      if (effectiveLayoutMode === 'board') {
+        renderTaskBoard(viewData);
+      } else if (effectiveLayoutMode === 'list') {
         const filteredPrimary = filterTasks(viewData.primaryTasks);
         const filteredSecondary = filterTasks(viewData.secondaryTasks);
         renderTaskList(filteredPrimary, filteredSecondary, viewData);
@@ -24,6 +31,7 @@
     }
 
     function renderToolbarState() {
+      const effectiveLayoutMode = getEffectiveLayoutMode();
       const counts = {
         today: getTasksForView('today').progressTasks.length,
         dueSoon: getTasksForView('due-soon').primaryTasks.length,
@@ -37,14 +45,22 @@
         btn.classList.toggle('active', btn.dataset.view === State.viewMode);
       });
       document.querySelectorAll('#layout-toggle [data-layout]').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.layout === State.layoutMode);
+        btn.classList.toggle('active', btn.dataset.layout === effectiveLayoutMode);
       });
       document.querySelectorAll('#density-toggle [data-density]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.density === State.densityMode);
       });
-      document.getElementById('toolbar-view-section').hidden = State.layoutMode === 'board';
-      document.getElementById('board-layout-hint').hidden = State.layoutMode !== 'board';
-      document.body.classList.toggle('board-layout-active', State.layoutMode === 'board');
+      document.getElementById('toolbar-view-section').hidden = effectiveLayoutMode !== 'list';
+      document.getElementById('board-layout-hint').hidden = effectiveLayoutMode !== 'board';
+      document.getElementById('today-layout-hint').hidden = State.layoutMode !== 'today';
+      document.body.classList.toggle('board-layout-active', effectiveLayoutMode === 'board');
+      document.body.classList.toggle('today-layout-active', effectiveLayoutMode === 'today');
+      const todayLayoutCopy = document.getElementById('today-layout-copy');
+      if (todayLayoutCopy) {
+        todayLayoutCopy.textContent = State.layoutMode === 'today' && State.selectedDate !== getTodayString()
+          ? 'The Today workspace appears only on today’s date, so the planner falls back to the list while you browse another day.'
+          : 'Today centers your reminder inbox, top priorities, and the next 24 hours.';
+      }
 
       document.getElementById('count-today').textContent = counts.today;
       document.getElementById('count-due-soon').textContent = counts.dueSoon;
@@ -208,6 +224,11 @@
       let progressText = 'No tasks for this day yet. Add one above!';
       if (viewMode === 'board') {
         progressText = total ? total + ' tasks are visible across your board' : 'Nothing is showing on the board right now.';
+      } else if (viewMode === 'today-workspace') {
+        const workspace = getTodayReminderWorkspaceData();
+        progressText = (workspace.summary.dueNow + workspace.summary.nextHour + workspace.summary.snoozed + workspace.summary.overdue)
+          ? workspace.summary.dueNow + ' due now, ' + workspace.summary.nextHour + ' in the next hour, and ' + workspace.summary.overdue + ' overdue tasks need attention.'
+          : 'No reminders need triage right now. The Today workspace will gather due, snoozed, and missed items here.';
       } else if (viewMode === 'due-soon') {
         progressText = total ? total + ' reminders are due within the next hour' : 'No reminders coming up within the next hour.';
       } else if (viewMode === 'upcoming') {
@@ -235,7 +256,7 @@
         '<span class="progress-stat"><span class="progress-stat-dot" style="background:var(--priority-medium-border)"></span>' + med + ' Medium</span>' +
         '<span class="progress-stat"><span class="progress-stat-dot" style="background:var(--priority-low-border)"></span>' + low + ' Low</span>';
 
-      document.getElementById('celebration').classList.toggle('visible', viewMode === 'today' && total > 0 && done === total);
+      document.getElementById('celebration').classList.toggle('visible', (viewMode === 'today' || viewMode === 'today-workspace') && total > 0 && done === total);
     }
 
     function filterTasks(tasks, overrides = {}) {
@@ -328,8 +349,10 @@
       const badge = document.getElementById('reminder-badge-count');
       const panel = document.getElementById('reminder-panel');
       const list = document.getElementById('reminder-panel-list');
-      const reminders = getPendingReminderTasks();
-      const visibleCount = reminders.length;
+      const workspace = getTodayReminderWorkspaceData();
+      const reminders = workspace.dueNow.concat(workspace.upcoming, workspace.snoozed, workspace.missed).slice(0, 4);
+      const visibleCount = workspace.summary.dueNow + workspace.summary.nextHour + workspace.summary.snoozed + workspace.missed.length;
+      const delivery = getReminderDeliveryStatus();
 
       button.classList.toggle('active', State.reminderPanelOpen);
       button.setAttribute('aria-expanded', String(State.reminderPanelOpen));
@@ -337,27 +360,41 @@
       badge.classList.toggle('visible', visibleCount > 0);
       panel.hidden = !State.reminderPanelOpen;
 
-      if (!visibleCount) {
-        list.innerHTML = '<div class="reminder-panel-empty">No reminders are scheduled right now.</div>';
+      if (!reminders.length) {
+        list.innerHTML =
+          '<div class="reminder-launcher-status ' + delivery.key + '">' + escapeHtml(delivery.label) + '</div>' +
+          '<div class="reminder-panel-empty">No reminders are waiting right now. The Today workspace will light up as reminders become due, snoozed, or missed.</div>';
         return;
       }
 
-      list.innerHTML = reminders.slice(0, 6).map(task => {
-        const reminderAt = getReminderDateTime(task);
-        const dueSoon = isTaskDueSoon(task);
-        const summary = escapeHtml(getReminderSummaryLabel(task));
-        const dueTime = task.dueTime ? '<span>Due ' + escapeHtml(formatTime(task.dueTime)) + '</span>' : '';
+      list.innerHTML =
+        '<div class="reminder-launcher-status ' + delivery.key + '">' + escapeHtml(delivery.label) + '</div>' +
+        '<div class="reminder-launcher-metrics">' +
+          '<div class="reminder-launcher-metric"><strong>' + workspace.summary.dueNow + '</strong><span>Due now</span></div>' +
+          '<div class="reminder-launcher-metric"><strong>' + workspace.summary.nextHour + '</strong><span>Next hour</span></div>' +
+          '<div class="reminder-launcher-metric"><strong>' + workspace.summary.snoozed + '</strong><span>Snoozed</span></div>' +
+          '<div class="reminder-launcher-metric"><strong>' + workspace.missed.length + '</strong><span>Missed</span></div>' +
+        '</div>' +
+        reminders.map(model => {
+        const dueSoon = model.job.status === 'pending' && model.scheduledAt.getTime() <= Date.now() + REMINDER_SOON_WINDOW_MS;
+        const summary = escapeHtml(formatDateTimeShort(model.scheduledAt));
+        const dueTime = model.dueTime ? '<span>Due ' + escapeHtml(formatTime(model.dueTime)) + '</span>' : '';
+        const stateLabel = model.job.status === 'snoozed'
+          ? '<span class="reminder-pill">Snoozed</span>'
+          : model.job.status === 'sent' || model.job.status === 'failed'
+            ? '<span class="reminder-pill due-soon">Needs review</span>'
+            : (dueSoon ? '<span class="reminder-pill due-soon">Due soon</span>' : '<span class="reminder-pill">' + escapeHtml(formatCompactDate(model.task.date)) + '</span>');
 
         return '<div class="reminder-panel-item' + (dueSoon ? ' due-soon' : '') + '">' +
           '<div class="reminder-panel-item-main">' +
-            '<div class="reminder-panel-item-title">' + escapeHtml(stripHashtags(task.text) || task.text) + '</div>' +
+            '<div class="reminder-panel-item-title">' + escapeHtml(model.title) + '</div>' +
             '<div class="reminder-panel-item-meta">' +
               '<span>' + summary + '</span>' +
               dueTime +
-              (dueSoon ? '<span class="reminder-pill due-soon">Due soon</span>' : '<span class="reminder-pill">' + escapeHtml(formatCompactDate(task.date)) + '</span>') +
+              stateLabel +
             '</div>' +
           '</div>' +
-          '<button class="reminder-panel-open" type="button" data-reminder-open="' + task.id + '">Open</button>' +
+          '<button class="reminder-panel-open" type="button" data-reminder-open="' + model.taskId + '">Open</button>' +
         '</div>';
       }).join('');
     }
@@ -397,12 +434,138 @@
           '</div>' +
           '<div class="reminder-alert-actions">' +
             '<button class="reminder-alert-btn primary" type="button" data-reminder-open="' + alert.taskId + '">Open task</button>' +
+            '<button class="reminder-alert-btn" type="button" data-reminder-done="' + alert.taskId + '">Mark done</button>' +
             '<button class="reminder-alert-btn" type="button" data-reminder-snooze="10m" data-id="' + alert.taskId + '">Snooze 10 min</button>' +
-            '<button class="reminder-alert-btn" type="button" data-reminder-snooze="30m" data-id="' + alert.taskId + '">Snooze 30 min</button>' +
-            '<button class="reminder-alert-btn" type="button" data-reminder-snooze="tomorrow" data-id="' + alert.taskId + '">Snooze tomorrow</button>' +
+            '<button class="reminder-alert-btn" type="button" data-reminder-snooze="1h" data-id="' + alert.taskId + '">Snooze 1 hour</button>' +
+            '<button class="reminder-alert-btn" type="button" data-reminder-snooze="tomorrow-9" data-id="' + alert.taskId + '">Tomorrow 9 AM</button>' +
           '</div>' +
         '</div>';
       }).join('');
+    }
+
+    function buildTodayWorkspaceReminderCard(model, stateKey) {
+      const title = escapeHtml(model.title);
+      const dueLabel = model.dueTime ? 'Due ' + formatTime(model.dueTime) : 'No task due time';
+      const reminderLabel = formatDateTimeShort(model.scheduledAt);
+      const statusLabel = stateKey === 'due-now'
+        ? 'Due now'
+        : stateKey === 'upcoming'
+          ? 'Upcoming'
+          : stateKey === 'snoozed'
+            ? 'Snoozed'
+            : 'Missed';
+
+      return '<article class="today-reminder-card priority-' + escapeHtml(model.priority || 'medium') + '">' +
+        '<div class="today-reminder-card-top">' +
+          '<div>' +
+            '<div class="today-reminder-card-title">' + title + '</div>' +
+            '<div class="today-reminder-card-meta">' +
+              '<span class="today-reminder-pill state-' + stateKey + '">' + escapeHtml(statusLabel) + '</span>' +
+              (model.pinned ? '<span class="today-reminder-pill">Top priority</span>' : '') +
+              '<span class="today-reminder-pill subtle">' + escapeHtml(reminderLabel) + '</span>' +
+              '<span class="today-reminder-pill subtle">' + escapeHtml(dueLabel) + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="today-reminder-card-actions">' +
+          '<button class="reminder-alert-btn primary" type="button" data-reminder-open="' + model.taskId + '">Open</button>' +
+          '<button class="reminder-alert-btn" type="button" data-reminder-done="' + model.taskId + '">Mark done</button>' +
+          '<button class="reminder-alert-btn" type="button" data-reminder-snooze="10m" data-id="' + model.taskId + '">Snooze 10m</button>' +
+          '<button class="reminder-alert-btn" type="button" data-reminder-snooze="1h" data-id="' + model.taskId + '">Snooze 1h</button>' +
+          '<button class="reminder-alert-btn" type="button" data-reminder-snooze="tomorrow-9" data-id="' + model.taskId + '">Tomorrow 9 AM</button>' +
+        '</div>' +
+      '</article>';
+    }
+
+    function renderTodayReminderSection(title, subtitle, models, stateKey, emptyText) {
+      const bodyHtml = models.length
+        ? models.map(model => buildTodayWorkspaceReminderCard(model, stateKey)).join('')
+        : '<div class="today-reminder-empty">' + escapeHtml(emptyText) + '</div>';
+
+      return '<section class="today-reminder-section">' +
+        '<div class="today-reminder-section-head">' +
+          '<div>' +
+            '<div class="today-reminder-section-title">' + escapeHtml(title) + '</div>' +
+            '<div class="today-reminder-section-subtitle">' + escapeHtml(subtitle) + '</div>' +
+          '</div>' +
+          '<span class="today-reminder-section-count">' + models.length + '</span>' +
+        '</div>' +
+        '<div class="today-reminder-stack">' + bodyHtml + '</div>' +
+      '</section>';
+    }
+
+    function renderTodayPriorityRail(tasks) {
+      if (!tasks.length) {
+        return '<div class="today-side-empty">Pin a few tasks to keep them surfaced here while you work through reminders.</div>';
+      }
+      return '<div class="today-priority-list">' + tasks.map(task => {
+        const reminder = isReminderTaskPending(task) ? '<span class="today-mini-meta">🔔 ' + escapeHtml(getReminderSummaryLabel(task)) + '</span>' : '';
+        return '<button class="today-mini-card" type="button" data-reminder-open="' + task.id + '">' +
+          '<span class="today-mini-title">' + escapeHtml(stripHashtags(task.text) || task.text) + '</span>' +
+          '<span class="today-mini-meta-row">' +
+            '<span class="priority-pill ' + escapeHtml(task.priority) + '">' + escapeHtml(task.priority) + '</span>' +
+            reminder +
+          '</span>' +
+        '</button>';
+      }).join('') + '</div>';
+    }
+
+    function renderTodayTimeline(models) {
+      if (!models.length) {
+        return '<div class="today-side-empty">The next 24 hours are clear right now.</div>';
+      }
+      return '<div class="today-timeline">' + models.map(model => {
+        return '<button class="today-timeline-item" type="button" data-reminder-open="' + model.taskId + '">' +
+          '<span class="today-timeline-time">' + escapeHtml(formatDateTimeShort(model.scheduledAt)) + '</span>' +
+          '<span class="today-timeline-text">' + escapeHtml(model.title) + '</span>' +
+        '</button>';
+      }).join('') + '</div>';
+    }
+
+    function renderTodayWorkspace() {
+      const taskList = document.getElementById('task-list');
+      const emptyState = document.getElementById('empty-state');
+      const workspace = getTodayReminderWorkspaceData();
+      const delivery = getReminderDeliveryStatus();
+
+      emptyState.style.display = 'none';
+      taskList.className = 'task-list today-workspace-shell';
+      taskList.innerHTML =
+        '<section class="today-summary-strip">' +
+          '<article class="today-summary-card"><span class="today-summary-label">Due now</span><strong>' + workspace.summary.dueNow + '</strong></article>' +
+          '<article class="today-summary-card"><span class="today-summary-label">Next hour</span><strong>' + workspace.summary.nextHour + '</strong></article>' +
+          '<article class="today-summary-card"><span class="today-summary-label">Snoozed</span><strong>' + workspace.summary.snoozed + '</strong></article>' +
+          '<article class="today-summary-card"><span class="today-summary-label">Overdue</span><strong>' + workspace.summary.overdue + '</strong></article>' +
+          '<article class="today-summary-card delivery ' + delivery.key + '"><span class="today-summary-label">Delivery</span><strong>' + escapeHtml(delivery.label) + '</strong><span class="today-summary-help">' + escapeHtml(delivery.detail) + '</span></article>' +
+        '</section>' +
+        '<div class="today-workspace-grid">' +
+          '<section class="today-reminder-inbox">' +
+            '<div class="today-panel-header">' +
+              '<div>' +
+                '<div class="today-panel-eyebrow">Reminder Inbox</div>' +
+                '<h2 class="today-panel-title">Triage what needs attention now</h2>' +
+              '</div>' +
+            '</div>' +
+            '<div class="today-reminder-groups">' +
+              renderTodayReminderSection('Due now', 'Reminders that should be handled right away.', workspace.dueNow, 'due-now', 'Nothing is due right now.') +
+              renderTodayReminderSection('Upcoming', 'Reminders landing in the next hour.', workspace.upcoming, 'upcoming', 'Nothing else is coming up in the next hour.') +
+              renderTodayReminderSection('Snoozed', 'Items you intentionally pushed out.', workspace.snoozed, 'snoozed', 'No reminders are snoozed.') +
+              renderTodayReminderSection('Missed', 'Previously delivered reminders that still need review.', workspace.missed, 'missed', 'No missed reminders are waiting.') +
+            '</div>' +
+          '</section>' +
+          '<aside class="today-side-rail">' +
+            '<section class="today-side-panel">' +
+              '<div class="today-panel-eyebrow">Top priorities</div>' +
+              '<h3 class="today-side-title">Keep these visible</h3>' +
+              renderTodayPriorityRail(workspace.topPriorities) +
+            '</section>' +
+            '<section class="today-side-panel">' +
+              '<div class="today-panel-eyebrow">Next 24 hours</div>' +
+              '<h3 class="today-side-title">Reminder timeline</h3>' +
+              renderTodayTimeline(workspace.timeline) +
+            '</section>' +
+          '</aside>' +
+        '</div>';
     }
 
     function renderSubtasksHtml(task) {
@@ -469,10 +632,11 @@
 
       let reminderBadge = '';
       if (task.reminderDate && task.reminderTime && !task.reminderFired && !task.completed) {
+        const delivery = getReminderDeliveryStatus();
         const rLabel = task.reminderDate === getTodayString()
           ? '🔔 ' + formatTime(task.reminderTime)
           : '🔔 ' + formatDate(task.reminderDate);
-        reminderBadge = '<span class="reminder-badge" title="Browser reminder while this tab is open">' + rLabel + '</span>';
+        reminderBadge = '<span class="reminder-badge" title="' + escapeHtml(delivery.detail) + '">' + rLabel + '</span>';
       }
 
       let carriedBadge = '';
@@ -495,6 +659,11 @@
       let recurringBadge = '';
       if (task.recurrence && task.recurrence !== 'none') {
         recurringBadge = '<span class="recurring-badge">↻ ' + escapeHtml(RECURRENCE_LABELS[task.recurrence] || task.recurrence) + '</span>';
+      }
+
+      let contractBadge = '';
+      if (task.contractId && task.contractTitle) {
+        contractBadge = '<a class="contract-task-badge" href="contracts.html#contract=' + encodeURIComponent(task.contractId) + '" title="Open linked contract">Contract: ' + escapeHtml(task.contractTitle) + '</a>';
       }
 
       let boardStateBadges = '';
@@ -589,7 +758,7 @@
               '<span class="priority-pill ' + task.priority + '">' +
                 (task.priority === 'high' ? '! ' : '') + task.priority.charAt(0).toUpperCase() + task.priority.slice(1) +
               '</span>' +
-              pinnedBadge + recurringBadge + noteBadge + subtasksView.badgeHtml + archivedBadge + hashtagHtml + boardStateBadges + timeHtml + reminderBadge + carriedBadge +
+              pinnedBadge + recurringBadge + contractBadge + noteBadge + subtasksView.badgeHtml + archivedBadge + hashtagHtml + boardStateBadges + timeHtml + reminderBadge + carriedBadge +
             '</div>' +
             notePreviewHtml +
             noteFullHtml +

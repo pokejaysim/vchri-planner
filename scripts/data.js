@@ -1,3 +1,286 @@
+    /* ───────────── Reminder Jobs + Push Delivery ───────────── */
+    const PUSH_REGISTRATIONS_COLLECTION = 'push_registrations';
+    const REMINDER_JOBS_COLLECTION = 'reminder_jobs';
+    let reminderJobsSyncInitialized = false;
+    let pushRegistrationSyncInitialized = false;
+    let foregroundMessagingBound = false;
+    let reminderBackfillTimer = null;
+
+    function shouldSyncReminderForTaskUpdates(updates) {
+      return [
+        'text',
+        'dueTime',
+        'reminderDate',
+        'reminderTime',
+        'reminderFired',
+        'reminderFiredAt',
+        'completed',
+        'archived'
+      ].some(field => Object.prototype.hasOwnProperty.call(updates || {}, field));
+    }
+
+    function normalizeReminderJobRecord(job) {
+      return normalizeReminderJob(job);
+    }
+
+    function getReminderJobStatusForTask(task, options = {}) {
+      if (!task || !task.reminderDate || !task.reminderTime || task.completed || task.archived) {
+        return options.status || 'cancelled';
+      }
+      if (options.status) return options.status;
+      if (task.reminderFired) return 'sent';
+      return 'pending';
+    }
+
+    function buildReminderJobPayload(task, options = {}) {
+      const scheduledAt = getReminderDateTime(task);
+      const timestamp = getCurrentTimestamp();
+      const nextStatus = getReminderJobStatusForTask(task, options);
+      return {
+        taskId: task.id,
+        taskText: stripHashtags(task.text || ''),
+        scheduledFor: scheduledAt ? scheduledAt.toISOString() : null,
+        dueTime: task.dueTime || null,
+        status: nextStatus,
+        attemptCount: typeof options.attemptCount === 'number'
+          ? options.attemptCount
+          : ((getReminderJob(task.id) && getReminderJob(task.id).attemptCount) || 0),
+        sentAt: options.sentAt || (task.reminderFired ? (task.reminderFiredAt || timestamp) : null),
+        lastAttemptAt: options.lastAttemptAt || ((getReminderJob(task.id) && getReminderJob(task.id).lastAttemptAt) || null),
+        clickUrl: 'planner.html#task=' + encodeURIComponent(task.id),
+        createdAt: (getReminderJob(task.id) && getReminderJob(task.id).createdAt) || timestamp,
+        updatedAt: timestamp
+      };
+    }
+
+    async function setReminderJob(task, options = {}) {
+      if (!task || !task.id) return;
+      const ref = db.collection(REMINDER_JOBS_COLLECTION).doc(task.id);
+      const existing = getReminderJob(task.id);
+      const payload = buildReminderJobPayload(task, options);
+      if (!payload.scheduledFor || payload.status === 'cancelled') {
+        if (!existing && !task.reminderDate && !task.reminderTime) {
+          return;
+        }
+        await ref.set({
+          taskId: task.id,
+          taskText: stripHashtags(task.text || ''),
+          scheduledFor: null,
+          dueTime: task.dueTime || null,
+          status: 'cancelled',
+          attemptCount: 0,
+          sentAt: null,
+          lastAttemptAt: options.lastAttemptAt || null,
+          clickUrl: 'planner.html#task=' + encodeURIComponent(task.id),
+          updatedAt: getCurrentTimestamp()
+        }, { merge: true });
+        return;
+      }
+      await ref.set(payload, { merge: true });
+    }
+
+    async function deleteReminderJob(taskId) {
+      if (!taskId) return;
+      try {
+        await db.collection(REMINDER_JOBS_COLLECTION).doc(taskId).delete();
+      } catch (error) {
+        console.error('Delete reminder job error:', error);
+      }
+    }
+
+    async function syncReminderJobForTask(task, options = {}) {
+      if (!task || !task.id) return;
+      try {
+        await setReminderJob(task, options);
+      } catch (error) {
+        console.error('Sync reminder job error:', error);
+      }
+    }
+
+    function getPushRegistrationDefaults(overrides = {}) {
+      const now = getCurrentTimestamp();
+      return {
+        token: null,
+        enabled: false,
+        browserFamily: getBrowserFamily(),
+        supportsPush: supportsPushRegistration(),
+        supportsScheduledNotifications: supportsNotificationTriggers(),
+        lastSeenAt: now,
+        createdAt: now,
+        updatedAt: now,
+        ...overrides
+      };
+    }
+
+    async function savePushRegistrationDoc(overrides = {}) {
+      const installId = State.pushInstallId || getPlannerInstallId();
+      const existing = State.pushRegistration || {};
+      const payload = {
+        ...getPushRegistrationDefaults(),
+        ...existing,
+        ...overrides,
+        browserFamily: getBrowserFamily(),
+        supportsPush: supportsPushRegistration(),
+        supportsScheduledNotifications: supportsNotificationTriggers(),
+        lastSeenAt: getCurrentTimestamp(),
+        updatedAt: getCurrentTimestamp(),
+        createdAt: existing.createdAt || getCurrentTimestamp()
+      };
+      await db.collection(PUSH_REGISTRATIONS_COLLECTION).doc(installId).set(payload, { merge: true });
+      State.pushRegistration = { id: installId, ...payload };
+    }
+
+    function bindForegroundMessaging(registration) {
+      if (foregroundMessagingBound || typeof firebase.messaging !== 'function') return;
+      let messaging = null;
+      try {
+        messaging = firebase.messaging();
+      } catch (error) {
+        console.error('Messaging init error:', error);
+        return;
+      }
+      if (!messaging || typeof messaging.onMessage !== 'function') return;
+      foregroundMessagingBound = true;
+      messaging.onMessage(payload => {
+        const taskId = payload && payload.data ? payload.data.taskId : null;
+        const task = taskId ? State.tasks.find(item => item.id === taskId) : null;
+        if (!task) return;
+        showToast('Reminder: ' + task.text);
+        upsertReminderAlert(task);
+      });
+    }
+
+    async function ensurePushRegistration(options = {}) {
+      try {
+        if (typeof window === 'undefined') return getReminderDeliveryStatus();
+
+        const status = getReminderDeliveryStatus();
+        const registration = await registerPlannerServiceWorker();
+        if (registration) bindForegroundMessaging(registration);
+
+        if (status.key === 'blocked') {
+          await savePushRegistrationDoc({
+            token: null,
+            enabled: false
+          });
+          return status;
+        }
+
+        if (!supportsPushRegistration() || typeof firebase.messaging !== 'function') {
+          await savePushRegistrationDoc({
+            token: null,
+            enabled: false
+          });
+          return getReminderDeliveryStatus();
+        }
+
+        if (Notification.permission !== 'granted') {
+          await savePushRegistrationDoc({
+            token: null,
+            enabled: false
+          });
+          return getReminderDeliveryStatus();
+        }
+
+        const messaging = firebase.messaging();
+        const token = await messaging.getToken({
+          vapidKey: PLANNER_PUSH_CONFIG.vapidKey,
+          serviceWorkerRegistration: registration
+        });
+
+        if (!token) {
+          await savePushRegistrationDoc({
+            token: null,
+            enabled: false
+          });
+          return getReminderDeliveryStatus();
+        }
+
+        await savePushRegistrationDoc({
+          token,
+          enabled: true
+        });
+      } catch (error) {
+        console.error('Push registration error:', error);
+        try {
+          await savePushRegistrationDoc({
+            token: null,
+            enabled: false
+          });
+        } catch (saveError) {
+          console.error('Push fallback registration error:', saveError);
+        }
+        if (!options.quiet) {
+          showToast('Push setup fell back to in-browser reminders on this device.');
+        }
+      }
+
+      queueScheduledReminderSync();
+      return getReminderDeliveryStatus();
+    }
+
+    function setupReminderJobsRealtimeSync() {
+      if (reminderJobsSyncInitialized) return;
+      reminderJobsSyncInitialized = true;
+      db.collection(REMINDER_JOBS_COLLECTION).onSnapshot(snapshot => {
+        State.reminderJobs = snapshot.docs
+          .map(doc => normalizeReminderJobRecord({ id: doc.id, ...doc.data() }))
+          .filter(Boolean)
+          .sort((a, b) => {
+            const aTime = getReminderJobDateTime(a)?.getTime() || Number.POSITIVE_INFINITY;
+            const bTime = getReminderJobDateTime(b)?.getTime() || Number.POSITIVE_INFINITY;
+            return aTime - bTime;
+          });
+        render();
+      }, error => {
+        console.error('Reminder jobs realtime error:', error);
+      });
+    }
+
+    function setupPushRegistrationRealtimeSync() {
+      if (pushRegistrationSyncInitialized) return;
+      pushRegistrationSyncInitialized = true;
+      const installId = State.pushInstallId || getPlannerInstallId();
+      db.collection(PUSH_REGISTRATIONS_COLLECTION).doc(installId).onSnapshot(doc => {
+        State.pushRegistration = doc.exists ? { id: doc.id, ...doc.data() } : null;
+        render();
+      }, error => {
+        console.error('Push registration realtime error:', error);
+      });
+    }
+
+    function setupReminderInfrastructure() {
+      setupReminderJobsRealtimeSync();
+      setupPushRegistrationRealtimeSync();
+      ensurePushRegistration({ quiet: true }).catch(error => {
+        console.error('Push registration sync error:', error);
+      });
+    }
+
+    function reminderJobNeedsBackfill(task) {
+      const job = getReminderJob(task.id);
+      const reminderAt = getReminderDateTime(task);
+      if (!reminderAt) return !!job;
+      if (!job) return true;
+      const jobAt = getReminderJobDateTime(job);
+      if (!jobAt) return true;
+      if (jobAt.toISOString() !== reminderAt.toISOString()) return true;
+      if ((task.completed || task.archived) && job.status !== 'cancelled') return true;
+      if (!task.completed && !task.archived && task.reminderFired && job.status !== 'sent') return true;
+      if (!task.completed && !task.archived && !task.reminderFired && job.status === 'cancelled') return true;
+      return false;
+    }
+
+    function queueReminderJobBackfill() {
+      clearTimeout(reminderBackfillTimer);
+      reminderBackfillTimer = setTimeout(async () => {
+        const candidates = State.tasks.filter(reminderJobNeedsBackfill);
+        for (const task of candidates) {
+          await syncReminderJobForTask(task);
+        }
+      }, 400);
+    }
+
     /* ───────────── Firebase Operations ───────────── */
     async function addTask(task, options = {}) {
       try {
@@ -11,6 +294,7 @@
         task.archivedAt = task.archived ? (task.archivedAt || timestamp) : null;
         task.subtasks = normalizeSubtasks(task.subtasks);
         const docRef = await db.collection('planner_tasks').add(task);
+        await syncReminderJobForTask({ id: docRef.id, ...task });
         // Don't push locally - realtime sync will handle it
         setSyncStatus('synced');
         if (!options.skipToast) {
@@ -28,10 +312,15 @@
     async function updateTask(id, updates) {
       try {
         setSyncStatus('syncing');
+        const existing = State.tasks.find(task => task.id === id);
+        const merged = existing ? normalizeTask({ ...existing, ...updates, id }) : null;
         await db.collection('planner_tasks').doc(id).update({
           ...updates,
           updatedAt: getCurrentTimestamp()
         });
+        if (merged && shouldSyncReminderForTaskUpdates(updates)) {
+          await syncReminderJobForTask(merged);
+        }
         // Don't update locally - realtime sync will handle it
         setSyncStatus('synced');
         return true;
@@ -47,6 +336,9 @@
       try {
         setSyncStatus('syncing');
         await db.collection('planner_tasks').doc(id).delete();
+        await deleteReminderJob(id);
+        await cancelScheduledReminderNotification(id);
+        dismissReminderAlert(id);
         // Don't update locally - realtime sync will handle it
         setSyncStatus('synced');
         if (!options.skipToast) showToast('Task deleted');
@@ -65,6 +357,7 @@
         setSyncStatus('syncing');
         const { id, ...taskData } = cloneTaskSnapshot(taskSnapshot);
         await db.collection('planner_tasks').doc(id).set(taskData);
+        await syncReminderJobForTask({ id, ...taskData });
         setSyncStatus('synced');
         if (!options.skipToast) showToast('Task restored');
         return true;
@@ -219,7 +512,9 @@
     /* ───────────── Contracts Module ───────────── */
     const CONTRACTS_COLLECTION = 'contracts';
     const CONTRACTS_BOARD_SETTINGS_DOC = 'contracts_board';
+    const CONTRACTS_VIEWS_SETTINGS_DOC = 'contracts_views';
     const CONTRACT_ARCHIVED_COLUMN_ID = 'archived';
+    const CONTRACT_ACTIVITY_LIMIT = 50;
     const DEFAULT_CONTRACT_COLUMNS = [
       { id: 'intake', label: 'Intake', color: '#7c3aed', order: 0 },
       { id: 'reviewing', label: 'Reviewing', color: '#2563eb', order: 1 },
@@ -227,12 +522,76 @@
       { id: 'signed', label: 'Signed', color: '#059669', order: 3 },
       { id: CONTRACT_ARCHIVED_COLUMN_ID, label: 'Archived', color: '#6b7280', order: 4 }
     ];
+    const DEFAULT_CONTRACT_RISK_LEVELS = [
+      { id: 'low', label: 'Low', color: '#10b981', order: 0 },
+      { id: 'medium', label: 'Medium', color: '#f59e0b', order: 1 },
+      { id: 'high', label: 'High', color: '#ef4444', order: 2 }
+    ];
+    const DEFAULT_CONTRACT_FILE_TYPES = [
+      { id: 'agreement', label: 'Agreement', color: '#4f46e5', order: 0 },
+      { id: 'amendment', label: 'Amendment', color: '#0f766e', order: 1 },
+      { id: 'schedule', label: 'Schedule', color: '#d97706', order: 2 },
+      { id: 'reference', label: 'Reference', color: '#64748b', order: 3 }
+    ];
+    const DEFAULT_CONTRACT_FILE_GROUPS = ['primary', 'amendments', 'schedules', 'reference'];
+    const DEFAULT_CONTRACT_SAVED_VIEWS = [
+      {
+        id: 'all',
+        label: 'All active',
+        builtin: true,
+        filters: { archived: 'active' },
+        sort: 'board'
+      },
+      {
+        id: 'renewals-soon',
+        label: 'Renewals soon',
+        builtin: true,
+        filters: { archived: 'active', renewalWithinDays: 30 },
+        sort: 'renewal'
+      },
+      {
+        id: 'waiting-on',
+        label: 'Waiting on',
+        builtin: true,
+        filters: { archived: 'active', waiting: true },
+        sort: 'updated'
+      },
+      {
+        id: 'my-contracts',
+        label: 'My contracts',
+        builtin: true,
+        filters: { archived: 'active', owner: 'preferred' },
+        sort: 'updated'
+      },
+      {
+        id: 'no-files',
+        label: 'No files',
+        builtin: true,
+        filters: { archived: 'active', noFiles: true },
+        sort: 'updated'
+      },
+      {
+        id: 'recently-updated',
+        label: 'Recently updated',
+        builtin: true,
+        filters: { archived: 'all' },
+        sort: 'updated'
+      }
+    ];
 
     function getDefaultContractBoardSettings() {
       return {
         columns: DEFAULT_CONTRACT_COLUMNS.map(column => ({ ...column })),
-        tags: []
+        tags: [],
+        owners: [],
+        departments: [],
+        riskLevels: DEFAULT_CONTRACT_RISK_LEVELS.map(level => ({ ...level })),
+        fileTypes: DEFAULT_CONTRACT_FILE_TYPES.map(type => ({ ...type }))
       };
+    }
+
+    function getDefaultContractSavedViews() {
+      return DEFAULT_CONTRACT_SAVED_VIEWS.map(view => cloneContractSnapshot(view));
     }
 
     function getContractsState() {
@@ -240,11 +599,36 @@
         window.ContractsState = {
           contracts: [],
           boardSettings: getDefaultContractBoardSettings(),
+          savedViews: getDefaultContractSavedViews(),
           contractsLoaded: false,
-          settingsLoaded: false
+          settingsLoaded: false,
+          viewsLoaded: false
         };
       }
       return window.ContractsState;
+    }
+
+    function normalizeContractLibraryItems(items, defaults, fallbackPrefix) {
+      const source = Array.isArray(items) && items.length ? items : (defaults || []);
+      return source
+        .map((item, index) => {
+          if (!item) return null;
+          const id = String(item.id || '').trim() || createId(fallbackPrefix || 'contract-lib');
+          const label = String(item.label || '').trim();
+          if (!label) return null;
+          return {
+            id,
+            label,
+            color: String(item.color || '#6366f1').trim(),
+            order: typeof item.order === 'number' ? item.order : index
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.order - b.order)
+        .map((item, index) => ({
+          ...item,
+          order: index
+        }));
     }
 
     function normalizeContractFile(file) {
@@ -252,13 +636,20 @@
       const label = String(file.label || '').trim();
       const url = String(file.url || '').trim();
       if (!label || !url) return null;
+      const timestamp = getCurrentTimestamp();
       return {
         id: file.id || createId('contract-file'),
         label,
         url,
         type: String(file.type || '').trim(),
+        version: String(file.version || '').trim(),
+        owner: String(file.owner || '').trim(),
+        group: file.isPrimary ? 'primary' : (DEFAULT_CONTRACT_FILE_GROUPS.includes(file.group) ? file.group : 'reference'),
         note: String(file.note || '').trim(),
-        addedAt: file.addedAt || getCurrentTimestamp()
+        isPrimary: !!file.isPrimary,
+        addedAt: file.addedAt || file.dateAdded || timestamp,
+        dateAdded: file.dateAdded || file.addedAt || timestamp,
+        dateUpdated: file.dateUpdated || file.updatedAt || file.addedAt || file.dateAdded || timestamp
       };
     }
 
@@ -305,29 +696,90 @@
         order: normalizedColumns.length
       });
 
-      const tags = sourceTags
-        .map((tag, index) => {
-          if (!tag) return null;
-          const id = String(tag.id || '').trim() || createId('contract-tag');
-          const label = String(tag.label || '').trim();
+      const tags = normalizeContractLibraryItems(sourceTags, [], 'contract-tag');
+      const owners = normalizeContractLibraryItems(settings && settings.owners, defaults.owners, 'contract-owner');
+      const departments = normalizeContractLibraryItems(settings && settings.departments, defaults.departments, 'contract-department');
+      const riskLevels = normalizeContractLibraryItems(settings && settings.riskLevels, defaults.riskLevels, 'contract-risk');
+      const fileTypes = normalizeContractLibraryItems(settings && settings.fileTypes, defaults.fileTypes, 'contract-file-type');
+
+      return { columns: normalizedColumns, tags, owners, departments, riskLevels, fileTypes };
+    }
+
+    function normalizeContractSavedViews(settings) {
+      const defaults = getDefaultContractSavedViews();
+      const sourceViews = Array.isArray(settings && settings.views) ? settings.views : defaults;
+      const views = sourceViews
+        .map((view, index) => {
+          if (!view) return null;
+          const id = String(view.id || '').trim() || createId('contract-view');
+          const label = String(view.label || '').trim();
           if (!label) return null;
           return {
             id,
             label,
-            color: String(tag.color || '#6366f1').trim(),
-            order: typeof tag.order === 'number' ? tag.order : index
+            builtin: !!view.builtin,
+            filters: view.filters && typeof view.filters === 'object' ? { ...view.filters } : {},
+            sort: String(view.sort || 'board').trim(),
+            order: typeof view.order === 'number' ? view.order : index
+          };
+        })
+        .filter(Boolean);
+
+      const byId = new Map();
+      defaults.forEach((view, index) => byId.set(view.id, { ...view, order: index }));
+      views.forEach(view => byId.set(view.id, view));
+      return Array.from(byId.values())
+        .sort((a, b) => a.order - b.order)
+        .map((view, index) => ({
+          ...view,
+          order: index
+        }));
+    }
+
+    function normalizeContractActivity(activity) {
+      if (!Array.isArray(activity)) return [];
+      return activity
+        .map((entry, index) => {
+          if (!entry) return null;
+          const type = String(entry.type || '').trim();
+          const label = String(entry.label || '').trim();
+          if (!type || !label) return null;
+          return {
+            id: entry.id || createId('contract-activity'),
+            type,
+            label,
+            at: entry.at || entry.createdAt || getCurrentTimestamp(),
+            meta: entry.meta && typeof entry.meta === 'object' ? { ...entry.meta } : {},
+            order: typeof entry.order === 'number' ? entry.order : index
           };
         })
         .filter(Boolean)
-        .sort((a, b) => a.order - b.order)
-        .map((tag, index) => ({
-          id: tag.id,
-          label: tag.label,
-          color: tag.color,
-          order: index
-        }));
+        .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))
+        .slice(0, CONTRACT_ACTIVITY_LIMIT);
+    }
 
-      return { columns: normalizedColumns, tags };
+    function createContractActivityEvent(type, label, meta = {}) {
+      return {
+        id: createId('contract-activity'),
+        type,
+        label,
+        at: getCurrentTimestamp(),
+        meta
+      };
+    }
+
+    function appendContractActivityEvents(activity, events) {
+      const normalizedEvents = (Array.isArray(events) ? events : [events])
+        .filter(Boolean)
+        .map(event => ({
+          ...event,
+          id: event.id || createId('contract-activity'),
+          at: event.at || getCurrentTimestamp(),
+          meta: event.meta && typeof event.meta === 'object' ? { ...event.meta } : {}
+        }));
+      return normalizedEvents
+        .concat(normalizeContractActivity(activity))
+        .slice(0, CONTRACT_ACTIVITY_LIMIT);
     }
 
     function normalizeContract(contract) {
@@ -352,6 +804,15 @@
         tags: Array.isArray(contract && contract.tags)
           ? [...new Set(contract.tags.map(tag => String(tag || '').trim()).filter(Boolean))]
           : [],
+        contractValue: String(contract && contract.contractValue || '').trim(),
+        department: String(contract && contract.department || '').trim(),
+        contactName: String(contract && contract.contactName || '').trim(),
+        contactEmail: String(contract && contract.contactEmail || '').trim(),
+        riskLevel: String(contract && contract.riskLevel || '').trim(),
+        reviewDeadline: contract && contract.reviewDeadline ? String(contract.reviewDeadline) : null,
+        signatureDate: contract && contract.signatureDate ? String(contract.signatureDate) : null,
+        nextAction: String(contract && contract.nextAction || '').trim(),
+        nextActionDate: contract && contract.nextActionDate ? String(contract.nextActionDate) : null,
         effectiveDate: contract && contract.effectiveDate ? String(contract.effectiveDate) : null,
         renewalDate: contract && contract.renewalDate ? String(contract.renewalDate) : null,
         statusNote: String(contract && contract.statusNote || '').trim(),
@@ -362,7 +823,8 @@
         updatedAt: contract && contract.updatedAt || contract && contract.createdAt || null,
         files: Array.isArray(contract && contract.files)
           ? contract.files.map(normalizeContractFile).filter(Boolean)
-          : []
+          : [],
+        activity: normalizeContractActivity(contract && contract.activity)
       };
     }
 
@@ -388,7 +850,7 @@
 
     function hideContractsLoadingIfReady() {
       const state = getContractsState();
-      if (!state.contractsLoaded || !state.settingsLoaded) return;
+      if (!state.contractsLoaded || !state.settingsLoaded || !state.viewsLoaded) return;
       const loading = document.getElementById('loading');
       if (loading) loading.style.display = 'none';
     }
@@ -396,6 +858,8 @@
     function renderContractsIfAvailable() {
       if (typeof renderContracts === 'function') {
         renderContracts();
+      } else if (typeof render === 'function') {
+        render();
       }
     }
 
@@ -433,6 +897,21 @@
         hideContractsLoadingIfReady();
         showToast('Failed to load contract board settings');
       });
+
+      db.collection('settings').doc(CONTRACTS_VIEWS_SETTINGS_DOC).onSnapshot(doc => {
+        state.savedViews = normalizeContractSavedViews(doc.exists ? doc.data() : null);
+        state.viewsLoaded = true;
+        setSyncStatus('synced');
+        hideContractsLoadingIfReady();
+        renderContractsIfAvailable();
+      }, error => {
+        console.error('Contract views realtime error:', error);
+        state.viewsLoaded = true;
+        state.savedViews = normalizeContractSavedViews(null);
+        setSyncStatus('offline');
+        hideContractsLoadingIfReady();
+        showToast('Failed to load contract views');
+      });
     }
 
     async function addContractRecord(contract, options = {}) {
@@ -443,7 +922,8 @@
         const normalized = normalizeContract({
           ...contract,
           createdAt: contract.createdAt || timestamp,
-          updatedAt: timestamp
+          updatedAt: timestamp,
+          activity: appendContractActivityEvents(contract.activity, createContractActivityEvent('created', 'Contract created'))
         });
         normalized.sortOrder = getNextContractSortOrder(normalized.columnId, state.contracts);
         const { id, ...payload } = normalized;
@@ -563,10 +1043,57 @@
         showToast('Add a contract title before saving');
         return null;
       }
+      if (!normalized.counterparty) {
+        showToast('Add a counterparty before saving');
+        return null;
+      }
+      if (!normalized.owner) {
+        showToast('Add an owner before saving');
+        return null;
+      }
+      if (!normalized.columnId) {
+        showToast('Choose a workflow column before saving');
+        return null;
+      }
 
       if (!existingContract) {
         return addContractRecord(normalized);
       }
+
+      const events = [];
+      const settings = normalizeContractBoardSettings(getContractsState().boardSettings);
+      const nextColumn = settings.columns.find(column => column.id === normalized.columnId);
+      const previousColumnId = existingContract.archived ? CONTRACT_ARCHIVED_COLUMN_ID : existingContract.columnId;
+      if (normalized.columnId !== previousColumnId || normalized.archived !== existingContract.archived) {
+        if (normalized.archived && !existingContract.archived) {
+          events.push(createContractActivityEvent('archived', 'Contract archived'));
+        } else if (!normalized.archived && existingContract.archived) {
+          events.push(createContractActivityEvent('restored', 'Contract restored'));
+        } else {
+          events.push(createContractActivityEvent('moved', 'Moved to ' + ((nextColumn && nextColumn.label) || normalized.columnId), {
+            from: previousColumnId,
+            to: normalized.columnId
+          }));
+        }
+      }
+      if ((normalized.renewalDate || '') !== (existingContract.renewalDate || '')) {
+        events.push(createContractActivityEvent('renewal-changed', 'Renewal changed to ' + (normalized.renewalDate || 'none'), {
+          from: existingContract.renewalDate || null,
+          to: normalized.renewalDate || null
+        }));
+      }
+      const existingFileIds = new Set((existingContract.files || []).map(file => file.id));
+      const nextFileIds = new Set((normalized.files || []).map(file => file.id));
+      normalized.files.forEach(file => {
+        if (!existingFileIds.has(file.id)) {
+          events.push(createContractActivityEvent('file-added', 'File added: ' + file.label, { fileId: file.id }));
+        }
+      });
+      (existingContract.files || []).forEach(file => {
+        if (!nextFileIds.has(file.id)) {
+          events.push(createContractActivityEvent('file-removed', 'File removed: ' + file.label, { fileId: file.id }));
+        }
+      });
 
       const payload = {
         title: normalized.title,
@@ -577,13 +1104,23 @@
           ? (existingContract.archived ? existingContract.previousColumnId : existingContract.columnId)
           : normalized.columnId,
         tags: normalized.tags,
+        contractValue: normalized.contractValue,
+        department: normalized.department,
+        contactName: normalized.contactName,
+        contactEmail: normalized.contactEmail,
+        riskLevel: normalized.riskLevel,
+        reviewDeadline: normalized.reviewDeadline,
+        signatureDate: normalized.signatureDate,
+        nextAction: normalized.nextAction,
+        nextActionDate: normalized.nextActionDate,
         effectiveDate: normalized.effectiveDate,
         renewalDate: normalized.renewalDate,
         statusNote: normalized.statusNote,
         notes: normalized.notes,
         archived: normalized.archived,
         archivedAt: normalized.archived ? (existingContract.archivedAt || timestamp) : null,
-        files: normalized.files
+        files: normalized.files,
+        activity: appendContractActivityEvents(existingContract.activity, events)
       };
 
       const success = await updateContractRecord(existingContract.id, payload, {
@@ -636,6 +1173,7 @@
         const changedIds = new Set();
 
         targetContracts.forEach((contract, index) => {
+          const isDraggedContract = contract.id === dragged.id;
           const nextValues = {
             columnId: nextColumnId,
             archived: nextArchived,
@@ -644,8 +1182,26 @@
             sortOrder: index,
             updatedAt: timestamp
           };
-          const currentColumnId = contract.archived ? CONTRACT_ARCHIVED_COLUMN_ID : contract.columnId;
+          if (isDraggedContract && (sourceColumnId !== nextColumnId || dragged.archived !== nextArchived)) {
+            const settings = normalizeContractBoardSettings(state.boardSettings);
+            const nextColumn = settings.columns.find(column => column.id === nextColumnId);
+            let eventType = 'moved';
+            let label = 'Moved to ' + ((nextColumn && nextColumn.label) || nextColumnId);
+            if (nextArchived && !dragged.archived) {
+              eventType = 'archived';
+              label = 'Contract archived';
+            } else if (!nextArchived && dragged.archived) {
+              eventType = 'restored';
+              label = 'Contract restored';
+            }
+            nextValues.activity = appendContractActivityEvents(dragged.activity, createContractActivityEvent(eventType, label, {
+              from: sourceColumnId,
+              to: nextColumnId
+            }));
+          }
+          const currentColumnId = isDraggedContract ? sourceColumnId : (contract.archived ? CONTRACT_ARCHIVED_COLUMN_ID : contract.columnId);
           if (
+            (isDraggedContract && (sourceColumnId !== nextColumnId || dragged.archived !== nextArchived)) ||
             currentColumnId !== nextColumnId ||
             contract.archived !== nextArchived ||
             (contract.sortOrder || 0) !== index ||
@@ -700,6 +1256,22 @@
       }
     }
 
+    async function saveContractSavedViews(views, options = {}) {
+      try {
+        setSyncStatus('syncing');
+        const normalized = normalizeContractSavedViews({ views });
+        await db.collection('settings').doc(CONTRACTS_VIEWS_SETTINGS_DOC).set({ views: normalized });
+        setSyncStatus('synced');
+        if (!options.skipToast) showToast(options.toastMessage || 'Contract views saved');
+        return true;
+      } catch (error) {
+        console.error('Save contract views error:', error);
+        setSyncStatus('offline');
+        if (!options.skipToast) showToast('Failed to save contract views');
+        return false;
+      }
+    }
+
     let scheduledReminderSyncTimer = null;
 
     function queueScheduledReminderSync() {
@@ -712,6 +1284,7 @@
     }
 
     function setupRealtimeSync() {
+      setupReminderInfrastructure();
       setSyncStatus('syncing');
       db.collection('planner_tasks').onSnapshot(snapshot => {
         State.tasks = snapshot.docs.map(doc => normalizeTask({ id: doc.id, ...doc.data() }));
@@ -723,6 +1296,7 @@
         document.getElementById('loading').style.display = 'none';
         render();
         queueScheduledReminderSync();
+        queueReminderJobBackfill();
       }, err => {
         console.error('Realtime error:', err);
         setSyncStatus('offline');
@@ -732,18 +1306,25 @@
     }
 
     async function requestNotificationPermissionIfNeeded() {
-      if (!('Notification' in window)) return 'unsupported';
+      if (!('Notification' in window)) {
+        if (typeof refreshReminderSupportUi === 'function') refreshReminderSupportUi();
+        return 'unsupported';
+      }
       await registerPlannerServiceWorker();
       if (Notification.permission === 'default') {
         const result = await Notification.requestPermission();
         if (result === 'granted') {
+          await ensurePushRegistration({ quiet: true });
           queueScheduledReminderSync();
         }
+        if (typeof refreshReminderSupportUi === 'function') refreshReminderSupportUi();
         return result;
       }
       if (Notification.permission === 'granted') {
+        await ensurePushRegistration({ quiet: true });
         queueScheduledReminderSync();
       }
+      if (typeof refreshReminderSupportUi === 'function') refreshReminderSupportUi();
       return Notification.permission;
     }
 
@@ -779,8 +1360,15 @@
         reminderFired: false,
         reminderFiredAt: null
       });
+      await syncReminderJobForTask({
+        ...task,
+        reminderDate: nextReminder.date,
+        reminderTime: nextReminder.time,
+        reminderFired: false,
+        reminderFiredAt: null
+      }, { status: 'snoozed' });
       dismissReminderAlert(taskId);
-      queueUndoAction(mode === 'tomorrow' ? 'Reminder snoozed until tomorrow' : 'Reminder snoozed', async () => {
+      queueUndoAction(mode === 'tomorrow' || mode === 'tomorrow-9' ? 'Reminder snoozed until tomorrow' : 'Reminder snoozed', async () => {
         await updateTask(taskId, {
           reminderDate: previous.reminderDate || null,
           reminderTime: previous.reminderTime || null,
@@ -788,11 +1376,11 @@
           reminderFiredAt: previous.reminderFiredAt || null
         });
       });
-      showToast(mode === 'tomorrow' ? 'Reminder snoozed until tomorrow' : 'Reminder snoozed');
+      showToast(mode === 'tomorrow' || mode === 'tomorrow-9' ? 'Reminder snoozed until tomorrow' : 'Reminder snoozed');
     }
 
     async function triggerReminderIfDue(task) {
-      const reminderAt = getReminderDateTime(task);
+      const reminderAt = getTaskReminderDateTime(task);
       if (!reminderAt || reminderAt.getTime() > Date.now() || task.completed || task.reminderFired) return false;
       try {
         let latestTask = task;
@@ -802,7 +1390,7 @@
           if (!snapshot.exists) return false;
           const latest = normalizeTask({ id: snapshot.id, ...snapshot.data() });
           latestTask = latest;
-          const latestReminderAt = getReminderDateTime(latest);
+          const latestReminderAt = getTaskReminderDateTime(latest);
           if (!latestReminderAt || latestReminderAt.getTime() > Date.now() || latest.completed || latest.reminderFired) {
             return false;
           }
@@ -814,6 +1402,15 @@
         });
 
         if (!claimed) return false;
+        await syncReminderJobForTask({
+          ...latestTask,
+          reminderFired: true,
+          reminderFiredAt: new Date().toISOString()
+        }, {
+          status: 'sent',
+          sentAt: new Date().toISOString(),
+          lastAttemptAt: new Date().toISOString()
+        });
         await cancelScheduledReminderNotification(latestTask.id);
         await showReminderAlert(latestTask);
         return true;
@@ -824,7 +1421,8 @@
     }
 
     async function checkDueReminders() {
-      const dueTasks = State.tasks.filter(task => !task.archived && !task.completed && !task.reminderFired && getReminderDateTime(task));
+      if (getReminderDeliveryStatus().key === 'push') return;
+      const dueTasks = State.tasks.filter(task => !task.archived && !task.completed && !task.reminderFired && getTaskReminderDateTime(task));
       for (const task of dueTasks) {
         await triggerReminderIfDue(task);
       }

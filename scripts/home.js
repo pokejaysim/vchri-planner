@@ -319,12 +319,13 @@
     }
 
     function renderRemindersTile() {
-      const reminders = getPendingReminderTasks().slice(0, 4);
+      const workspace = getTodayReminderWorkspaceData();
+      const reminders = workspace.dueNow.concat(workspace.upcoming, workspace.snoozed, workspace.missed).slice(0, 4);
       const list = document.getElementById('home-rem-list');
       const count = document.getElementById('home-rem-count');
       const empty = document.getElementById('home-rem-empty');
       if (!list) return;
-      if (count) count.textContent = reminders.length;
+      if (count) count.textContent = workspace.summary.dueNow + workspace.summary.nextHour + workspace.summary.snoozed;
       if (reminders.length === 0) {
         list.innerHTML = '';
         if (empty) empty.style.display = '';
@@ -332,21 +333,91 @@
       }
       if (empty) empty.style.display = 'none';
 
-      list.innerHTML = reminders.map(t => {
-        const at = getReminderDateTime(t);
+      list.innerHTML = reminders.map(model => {
+        const at = model.scheduledAt;
+        const task = model.task;
+        const today = getTodayString();
         let when = '';
         if (at) {
-          const today = getTodayString();
-          if (t.reminderDate === today) when = formatTime(t.reminderTime);
-          else when = at.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + formatTime(t.reminderTime);
+          if (task && task.reminderDate === today) when = formatTime(task.reminderTime);
+          else when = at.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + formatTime(task ? task.reminderTime : model.scheduledAt.toTimeString().slice(0, 5));
         }
         return (
-          '<div class="home-rem-row" data-open="' + t.id + '">' +
+          '<div class="home-rem-row" data-open="' + model.taskId + '">' +
             '<span class="home-rem-bell">🔔</span>' +
-            '<span class="home-rem-text">' + escapeHtml(t.text) + '</span>' +
+            '<span class="home-rem-text">' + escapeHtml(model.title) + '</span>' +
             '<span class="home-rem-time">' + when + '</span>' +
           '</div>'
         );
+      }).join('');
+    }
+
+    function getHomeContractAlerts() {
+      const state = typeof getContractsState === 'function' ? getContractsState() : { contracts: [] };
+      const today = getTodayString();
+      return (state.contracts || [])
+        .filter(contract => !contract.archived)
+        .flatMap(contract => {
+          const alerts = [];
+          if (contract.renewalDate && contract.renewalDate >= today && contract.renewalDate <= addDays(today, 30)) {
+            alerts.push({
+              id: contract.id,
+              type: 'Renewal',
+              title: contract.title,
+              detail: formatCompactDate(contract.renewalDate)
+            });
+          }
+          if (contract.nextActionDate && contract.nextActionDate < today) {
+            alerts.push({
+              id: contract.id,
+              type: 'Overdue',
+              title: contract.title,
+              detail: contract.nextAction || 'Next action overdue'
+            });
+          }
+          if (!(contract.files || []).length) {
+            alerts.push({
+              id: contract.id,
+              type: 'No files',
+              title: contract.title,
+              detail: contract.counterparty || 'Missing linked documents'
+            });
+          }
+          const waitingText = [contract.statusNote, contract.nextAction, contract.notes].join(' ').toLowerCase();
+          if (waitingText.match(/\b(waiting|blocked|pending|signature|response)\b/)) {
+            alerts.push({
+              id: contract.id,
+              type: 'Waiting',
+              title: contract.title,
+              detail: contract.nextAction || contract.statusNote || 'Needs follow-up'
+            });
+          }
+          return alerts;
+        })
+        .slice(0, 5);
+    }
+
+    function renderContractsTile() {
+      const alerts = getHomeContractAlerts();
+      const list = document.getElementById('home-contract-list');
+      const count = document.getElementById('home-contract-count');
+      const empty = document.getElementById('home-contract-empty');
+      if (!list) return;
+      if (count) count.textContent = alerts.length;
+      if (!alerts.length) {
+        list.innerHTML = '';
+        if (empty) empty.style.display = '';
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+      list.innerHTML = alerts.map(alert => {
+        return '<a class="home-contract-row" href="contracts.html#contract=' + encodeURIComponent(alert.id) + '">' +
+          '<span class="home-contract-type">' + escapeHtml(alert.type) + '</span>' +
+          '<span class="home-contract-main">' +
+            '<span class="home-contract-title">' + escapeHtml(alert.title || 'Untitled contract') + '</span>' +
+            '<span class="home-contract-detail">' + escapeHtml(alert.detail || '') + '</span>' +
+          '</span>' +
+        '</a>';
       }).join('');
     }
 
@@ -370,6 +441,7 @@
       renderTasksTile();
       renderDueSoonTile();
       renderRemindersTile();
+      renderContractsTile();
       renderStatsTile();
     }
 
@@ -410,6 +482,7 @@
 
       // firestore
       setupRealtimeSync();
+      setupContractsRealtimeSync();
       startReminderPolling();
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') checkDueReminders();

@@ -5,14 +5,24 @@
       setupRealtimeSync();
       startReminderPolling();
       setupUndoBar();
-      const reminderSupportCopy = document.getElementById('reminder-support-copy');
-      if (reminderSupportCopy) {
-        reminderSupportCopy.textContent = supportsNotificationTriggers()
-          ? 'Scheduled notifications are available here while the browser is running, even if the planner is in the background.'
-          : 'This browser falls back to reminders while the planner stays open. Install the app for the strongest reminder support available here.';
+      if (typeof refreshReminderSupportUi === 'function') {
+        refreshReminderSupportUi();
+      }
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('layout') === 'today') {
+        State.selectedDate = getTodayString();
+        State.layoutMode = 'today';
+        State.viewMode = 'today';
+        persistLayoutMode('today');
+        history.replaceState(null, '', window.location.pathname + window.location.hash);
       }
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') checkDueReminders();
+        if (document.visibilityState === 'visible') {
+          checkDueReminders();
+          ensurePushRegistration({ quiet: true }).catch(error => {
+            console.error('Push refresh error:', error);
+          });
+        }
       });
 
       // Date navigation
@@ -152,6 +162,28 @@
 
       // Task list delegation
       document.getElementById('task-list').addEventListener('click', async e => {
+        const reminderOpenBtn = e.target.closest('[data-reminder-open]');
+        if (reminderOpenBtn) {
+          jumpToTask(reminderOpenBtn.dataset.reminderOpen);
+          return;
+        }
+
+        const reminderSnoozeBtn = e.target.closest('[data-reminder-snooze]');
+        if (reminderSnoozeBtn) {
+          await snoozeReminder(reminderSnoozeBtn.dataset.id, reminderSnoozeBtn.dataset.reminderSnooze);
+          return;
+        }
+
+        const reminderDoneBtn = e.target.closest('[data-reminder-done]');
+        if (reminderDoneBtn) {
+          const task = State.tasks.find(t => t.id === reminderDoneBtn.dataset.reminderDone);
+          if (task) {
+            await setTaskCompleted(task, true);
+            dismissReminderAlert(task.id);
+          }
+          return;
+        }
+
         // Hashtag click
         const hashtag = e.target.closest('.hashtag');
         if (hashtag) {
@@ -327,6 +359,7 @@
       // Reminder toggle
       document.getElementById('edit-reminder-toggle').addEventListener('change', e => {
         document.getElementById('reminder-controls').classList.toggle('visible', e.target.checked);
+        if (typeof refreshReminderSupportUi === 'function') refreshReminderSupportUi();
       });
 
       // Reminder presets
@@ -364,6 +397,10 @@
         setViewMode('due-soon');
       });
 
+      document.getElementById('reminder-panel-open-today').addEventListener('click', () => {
+        setLayoutMode('today');
+      });
+
       document.getElementById('reminder-panel').addEventListener('click', e => {
         const openBtn = e.target.closest('[data-reminder-open]');
         if (!openBtn) return;
@@ -374,6 +411,16 @@
         const snoozeBtn = e.target.closest('[data-reminder-snooze]');
         if (snoozeBtn) {
           await snoozeReminder(snoozeBtn.dataset.id, snoozeBtn.dataset.reminderSnooze);
+          return;
+        }
+
+        const doneBtn = e.target.closest('[data-reminder-done]');
+        if (doneBtn) {
+          const task = State.tasks.find(item => item.id === doneBtn.dataset.reminderDone);
+          if (task) {
+            await setTaskCompleted(task, true);
+            dismissReminderAlert(task.id);
+          }
           return;
         }
 

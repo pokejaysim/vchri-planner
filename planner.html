@@ -47,9 +47,12 @@
           <div class="reminder-panel-header">
             <div>
               <div class="reminder-panel-title">Upcoming reminders</div>
-              <div class="reminder-panel-subtitle">Keep an eye on what is coming up next.</div>
+              <div class="reminder-panel-subtitle">Use the Today workspace for due now, snoozed, and missed reminders.</div>
             </div>
-            <button class="reminder-panel-link" id="reminder-panel-due-soon" type="button">Due soon view</button>
+            <div class="reminder-panel-links">
+              <button class="reminder-panel-link" id="reminder-panel-open-today" type="button">Open Today workspace</button>
+              <button class="reminder-panel-link secondary" id="reminder-panel-due-soon" type="button">Due soon list</button>
+            </div>
           </div>
           <div class="reminder-panel-list" id="reminder-panel-list"></div>
         </div>
@@ -80,9 +83,13 @@
       <div class="toolbar-section toolbar-layout-section">
         <span class="toolbar-label">Layout</span>
         <div class="segmented-control" id="layout-toggle">
+          <button class="segment-btn" type="button" data-layout="today">Today</button>
           <button class="segment-btn" type="button" data-layout="list">List</button>
           <button class="segment-btn" type="button" data-layout="board">Board</button>
         </div>
+      </div>
+      <div class="toolbar-section toolbar-today-hint" id="today-layout-hint" hidden>
+        <span class="shortcut-hint" id="today-layout-copy">Today centers your reminder inbox, top priorities, and the next 24 hours.</span>
       </div>
       <div class="toolbar-section toolbar-board-hint" id="board-layout-hint" hidden>
         <span class="shortcut-hint">Board groups tasks into Top priorities, Today, Upcoming, and Done.</span>
@@ -243,6 +250,9 @@
                 <input type="date" id="edit-reminder-date" title="Reminder date" aria-label="Reminder date">
                 <input type="time" id="edit-reminder-time" title="Reminder time" aria-label="Reminder time">
               </div>
+              <div class="reminder-status-row">
+                <span class="reminder-status-chip" id="reminder-device-status">Fallback only</span>
+              </div>
               <p class="form-help" id="reminder-support-copy">Installed browsers that support scheduled notifications can remind you in the background. Otherwise reminders fire while the planner stays open.</p>
             </div>
           </div>
@@ -280,6 +290,7 @@
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
 
   <script defer src="scripts/core.js"></script>
   <script defer src="scripts/data.js"></script>

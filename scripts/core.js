@@ -14,10 +14,14 @@
     /* ───────────── Constants ───────────── */
     const THEME_KEY = 'dailyPlanner_theme';
     const LAYOUT_MODE_KEY = 'dailyPlanner_layoutMode';
+    const PUSH_INSTALL_ID_KEY = 'dailyPlanner_pushInstallId';
     const UNDO_TIMEOUT_MS = 7000;
     const REMINDER_POLL_INTERVAL_MS = 30000;
     const REMINDER_SOON_WINDOW_MS = 60 * 60 * 1000;
+    const REMINDER_TIMELINE_WINDOW_MS = 24 * 60 * 60 * 1000;
+    const REMINDER_DUE_NOW_WINDOW_MS = 5 * 60 * 1000;
     const QUICK_ENTRY_WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const PLANNER_PUSH_CONFIG = Object.assign({ vapidKey: '' }, window.PLANNER_PUSH_CONFIG || {});
 
     const DEFAULT_CATEGORY_ID = 'vchri';
     const RECURRENCE_LABELS = {
@@ -87,6 +91,29 @@
 
     function getCurrentTimestamp() {
       return new Date().toISOString();
+    }
+
+    function getPlannerInstallId() {
+      try {
+        const existing = localStorage.getItem(PUSH_INSTALL_ID_KEY);
+        if (existing) return existing;
+        const next = createId('install');
+        localStorage.setItem(PUSH_INSTALL_ID_KEY, next);
+        return next;
+      } catch (error) {
+        console.error('Install ID error:', error);
+        return createId('install');
+      }
+    }
+
+    function getBrowserFamily() {
+      if (typeof navigator === 'undefined') return 'Unknown';
+      const ua = navigator.userAgent || '';
+      if (/Edg\//.test(ua)) return 'Edge';
+      if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) return 'Chrome';
+      if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) return 'Safari';
+      if (/Firefox\//.test(ua)) return 'Firefox';
+      return 'Unknown';
     }
 
     function parseDateOnly(dateStr) {
@@ -175,6 +202,77 @@
       return Number.isNaN(dt.getTime()) ? null : dt;
     }
 
+    function getReminderJob(taskId) {
+      return State.reminderJobs.find(job => job.taskId === taskId) || null;
+    }
+
+    function getReminderJobDateTime(job) {
+      if (!job || !job.scheduledFor) return null;
+      const dt = new Date(job.scheduledFor);
+      return Number.isNaN(dt.getTime()) ? null : dt;
+    }
+
+    function getTaskReminderDateTime(task) {
+      const job = task ? getReminderJob(task.id) : null;
+      const jobDate = getReminderJobDateTime(job);
+      return jobDate || getReminderDateTime(task);
+    }
+
+    function isReminderJobPending(job) {
+      return !!job && (job.status === 'pending' || job.status === 'snoozed');
+    }
+
+    function isReminderTaskPending(task) {
+      if (!task || task.archived || task.completed) return false;
+      const job = getReminderJob(task.id);
+      if (job) return isReminderJobPending(job) && !!getReminderJobDateTime(job);
+      return !task.reminderFired && !!getReminderDateTime(task);
+    }
+
+    function getReminderDeliveryStatus() {
+      if (typeof Notification === 'undefined') {
+        return {
+          key: 'fallback',
+          label: 'Fallback only',
+          detail: 'This browser does not support notifications. Reminders stay inside the planner.'
+        };
+      }
+      if (Notification.permission === 'denied') {
+        return {
+          key: 'blocked',
+          label: 'Notifications blocked',
+          detail: 'Browser notifications are blocked on this device. Reminders stay in the Today workspace until permissions are restored.'
+        };
+      }
+      if (State.pushRegistration && State.pushRegistration.enabled && State.pushRegistration.token) {
+        return {
+          key: 'push',
+          label: 'Push enabled on this device',
+          detail: 'Due reminders use push when possible, with the Today workspace reflecting delivery state.'
+        };
+      }
+      if (State.scheduledNotificationSupported) {
+        return {
+          key: 'fallback',
+          label: 'Fallback only',
+          detail: 'Push is not configured on this device yet. Scheduled browser notifications work while the browser is running.'
+        };
+      }
+      return {
+        key: 'fallback',
+        label: 'Fallback only',
+        detail: 'Push is not configured on this device yet. Reminders fire while the planner stays open.'
+      };
+    }
+
+    function supportsPushRegistration() {
+      return typeof window !== 'undefined' &&
+        'serviceWorker' in navigator &&
+        'PushManager' in window &&
+        typeof Notification !== 'undefined' &&
+        !!PLANNER_PUSH_CONFIG.vapidKey;
+    }
+
     function formatCompactDate(dateStr) {
       return parseDateOnly(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
@@ -190,20 +288,20 @@
     }
 
     function getReminderSortValue(task) {
-      const reminderAt = getReminderDateTime(task);
+      const reminderAt = getTaskReminderDateTime(task);
       return reminderAt ? reminderAt.getTime() : Number.POSITIVE_INFINITY;
     }
 
     function isTaskDueSoon(task, nowMs = Date.now()) {
-      const reminderAt = getReminderDateTime(task);
-      if (!reminderAt || task.archived || task.completed || task.reminderFired) return false;
+      const reminderAt = getTaskReminderDateTime(task);
+      if (!reminderAt || !isReminderTaskPending(task)) return false;
       const reminderMs = reminderAt.getTime();
       return reminderMs >= nowMs && reminderMs <= nowMs + REMINDER_SOON_WINDOW_MS;
     }
 
     function getPendingReminderTasks() {
       return State.tasks
-        .filter(task => !task.archived && !task.completed && !task.reminderFired && getReminderDateTime(task))
+        .filter(task => isReminderTaskPending(task) && getTaskReminderDateTime(task))
         .sort((a, b) => getReminderSortValue(a) - getReminderSortValue(b));
     }
 
@@ -216,7 +314,7 @@
     }
 
     function getReminderSummaryLabel(task) {
-      const reminderAt = getReminderDateTime(task);
+      const reminderAt = getTaskReminderDateTime(task);
       if (!reminderAt) return '';
       if (isTaskDueSoon(task)) return 'Due ' + formatRelativeTime(reminderAt.toISOString());
       if (task.reminderDate === getTodayString()) return 'Today at ' + formatTime(task.reminderTime);
@@ -237,11 +335,126 @@
       let next = new Date(now.getTime());
       if (mode === '10m') next = addMinutes(now, 10);
       else if (mode === '30m') next = addMinutes(now, 30);
-      else if (mode === 'tomorrow') next = addMinutes(now, 24 * 60);
+      else if (mode === '1h') next = addMinutes(now, 60);
+      else if (mode === 'tomorrow-9') {
+        next.setDate(next.getDate() + 1);
+        next.setHours(9, 0, 0, 0);
+      } else if (mode === 'tomorrow') next = addMinutes(now, 24 * 60);
       return {
         date: toDateString(next),
         time: toTimeString(next)
       };
+    }
+
+    function normalizeReminderJob(job) {
+      if (!job) return null;
+      return {
+        id: job.id || job.taskId || createId('reminder-job'),
+        taskId: String(job.taskId || job.id || '').trim(),
+        taskText: String(job.taskText || '').trim(),
+        scheduledFor: job.scheduledFor || null,
+        dueTime: job.dueTime || null,
+        status: String(job.status || 'pending').trim() || 'pending',
+        attemptCount: typeof job.attemptCount === 'number' ? job.attemptCount : 0,
+        sentAt: job.sentAt || null,
+        lastAttemptAt: job.lastAttemptAt || null,
+        clickUrl: job.clickUrl || null,
+        createdAt: job.createdAt || null,
+        updatedAt: job.updatedAt || null
+      };
+    }
+
+    function getReminderTaskRecord(taskId) {
+      return State.tasks.find(task => task.id === taskId) || null;
+    }
+
+    function buildReminderJobViewModel(job) {
+      const task = getReminderTaskRecord(job.taskId);
+      const scheduledAt = getReminderJobDateTime(job) || (task ? getReminderDateTime(task) : null);
+      if (!scheduledAt) return null;
+      return {
+        job,
+        task,
+        taskId: job.taskId,
+        title: (task && stripHashtags(task.text)) || job.taskText || 'Reminder',
+        priority: task ? task.priority : 'medium',
+        pinned: !!(task && task.pinned),
+        dueTime: (task && task.dueTime) || job.dueTime || null,
+        scheduledAt,
+        overdueTask: !!(task && isTaskOverdueForView(task))
+      };
+    }
+
+    function getActiveReminderJobViewModels() {
+      return State.reminderJobs
+        .map(normalizeReminderJob)
+        .filter(job => job && job.taskId && job.status !== 'cancelled')
+        .map(buildReminderJobViewModel)
+        .filter(model => model && model.task && !model.task.archived && !model.task.completed)
+        .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+    }
+
+    function getTodayReminderWorkspaceData() {
+      const nowMs = Date.now();
+      const nextHourMs = nowMs + REMINDER_SOON_WINDOW_MS;
+      const nextDayMs = nowMs + REMINDER_TIMELINE_WINDOW_MS;
+      const models = getActiveReminderJobViewModels();
+
+      const dueNow = [];
+      const upcoming = [];
+      const snoozed = [];
+      const missed = [];
+      const timeline = [];
+
+      models.forEach(model => {
+        const scheduledMs = model.scheduledAt.getTime();
+        if (scheduledMs <= nextDayMs) timeline.push(model);
+
+        if (model.job.status === 'snoozed') {
+          snoozed.push(model);
+          return;
+        }
+        if (model.job.status === 'sent' || model.job.status === 'failed') {
+          missed.push(model);
+          return;
+        }
+        if (scheduledMs <= nowMs + REMINDER_DUE_NOW_WINDOW_MS) {
+          dueNow.push(model);
+          return;
+        }
+        if (scheduledMs <= nextHourMs) {
+          upcoming.push(model);
+        }
+      });
+
+      const topPriorities = State.tasks
+        .filter(task => !task.archived && !task.completed && task.pinned)
+        .sort((a, b) => getReminderSortValue(a) - getReminderSortValue(b))
+        .slice(0, 5);
+
+      const overdueTasks = State.tasks.filter(task => !task.archived && !task.completed && isTaskOverdueForView(task));
+
+      return {
+        dueNow,
+        upcoming,
+        snoozed,
+        missed,
+        timeline: timeline.slice(0, 8),
+        topPriorities,
+        summary: {
+          dueNow: dueNow.length,
+          nextHour: upcoming.length,
+          snoozed: snoozed.length,
+          overdue: overdueTasks.length
+        }
+      };
+    }
+
+    function getEffectiveLayoutMode() {
+      if (State.layoutMode === 'today' && State.selectedDate !== getTodayString()) {
+        return 'list';
+      }
+      return State.layoutMode;
     }
 
     function getNextWeekday(dateStr, weekdayName) {
@@ -708,7 +921,7 @@
           body,
           tag,
           data,
-          timestamp: getReminderDateTime(task)?.getTime() || Date.now(),
+          timestamp: getTaskReminderDateTime(task)?.getTime() || Date.now(),
           icon: 'assets/planner-icon.svg',
           badge: 'assets/planner-badge.svg',
           requireInteraction: true
@@ -739,6 +952,7 @@
       const registration = await registerPlannerServiceWorker();
       if (!registration || typeof registration.getNotifications !== 'function') return;
       if (typeof Notification === 'undefined') return;
+      const delivery = getReminderDeliveryStatus();
 
       const supportsScheduled = supportsNotificationTriggers();
       State.scheduledNotificationSupported = supportsScheduled;
@@ -751,10 +965,15 @@
         }
       });
 
+      if (delivery.key === 'push') {
+        existingByTag.forEach(notification => notification.close());
+        return;
+      }
+
       const now = Date.now();
       const scheduledTasks = getActiveTasks()
-        .filter(task => !task.completed && !task.reminderFired && getReminderDateTime(task))
-        .map(task => ({ task, reminderAt: getReminderDateTime(task) }))
+        .filter(task => isReminderTaskPending(task) && getTaskReminderDateTime(task))
+        .map(task => ({ task, reminderAt: getTaskReminderDateTime(task) }))
         .filter(entry => entry.reminderAt && entry.reminderAt.getTime() > now);
 
       const desiredTags = new Set(scheduledTasks.map(entry => getReminderNotificationTag(entry.task.id)));
@@ -872,7 +1091,10 @@
       render();
       requestAnimationFrame(() => {
         const card = document.querySelector('[data-task-id="' + taskId + '"]');
-        if (!card) return;
+        if (!card) {
+          if (typeof openEditModal === 'function') openEditModal(task);
+          return;
+        }
         card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         card.classList.add('flash-focus');
         setTimeout(() => card.classList.remove('flash-focus'), 1200);
@@ -916,7 +1138,7 @@
       lastFocusedElement = null;
     }
 
-    async function copyTextToClipboard(text) {
+    async function copyTextToClipboard(text, successMessage = 'Note copied', failureMessage = 'Failed to copy note') {
       try {
         if (navigator.clipboard && window.isSecureContext) {
           await navigator.clipboard.writeText(text);
@@ -931,10 +1153,10 @@
           document.execCommand('copy');
           document.body.removeChild(textarea);
         }
-        showToast('Note copied');
+        showToast(successMessage);
       } catch (e) {
         console.error('Copy error:', e);
-        showToast('Failed to copy note');
+        showToast(failureMessage);
       }
     }
 
@@ -984,11 +1206,13 @@
     }
 
     /* ───────────── State ───────────── */
+    const savedLayoutMode = localStorage.getItem(LAYOUT_MODE_KEY);
+
     const State = {
       selectedDate: getTodayString(),
       reviewWeekStart: getWeekStart(getTodayString()),
       tasks: [],
-      layoutMode: localStorage.getItem(LAYOUT_MODE_KEY) === 'board' ? 'board' : 'list',
+      layoutMode: savedLayoutMode === 'board' || savedLayoutMode === 'today' ? savedLayoutMode : 'list',
       viewMode: 'today',
       sortMode: 'manual',
       densityMode: 'expanded',
@@ -1003,6 +1227,9 @@
       noteDrafts: {},
       reminderPanelOpen: false,
       activeReminderAlerts: [],
+      reminderJobs: [],
+      pushInstallId: getPlannerInstallId(),
+      pushRegistration: null,
       undoAction: null,
       scheduledNotificationSupported: false,
       carriedExpanded: true,

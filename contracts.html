@@ -65,7 +65,15 @@
       </div>
     </section>
 
+    <section class="contracts-analytics" id="contracts-analytics" aria-label="Contract analytics"></section>
+
     <section class="contracts-toolbar">
+      <div class="contracts-toolbar-group">
+        <label class="contracts-toolbar-label" for="contract-saved-view">Saved view</label>
+        <select id="contract-saved-view" class="contracts-toolbar-select">
+          <option value="all">All active</option>
+        </select>
+      </div>
       <div class="contracts-toolbar-group contracts-toolbar-group-search">
         <label class="contracts-toolbar-label" for="contract-search">Search</label>
         <input id="contract-search" class="contracts-toolbar-input" type="text" placeholder="Search contracts, notes, tags, or files">
@@ -82,8 +90,29 @@
           <option value="">All owners</option>
         </select>
       </div>
+      <div class="contracts-toolbar-group">
+        <label class="contracts-toolbar-label" for="contract-filter-risk">Risk</label>
+        <select id="contract-filter-risk" class="contracts-toolbar-select">
+          <option value="">All risk levels</option>
+        </select>
+      </div>
+      <div class="contracts-toolbar-group">
+        <label class="contracts-toolbar-label" for="contract-density">Cards</label>
+        <select id="contract-density" class="contracts-toolbar-select">
+          <option value="compact">Compact</option>
+          <option value="detailed">Detailed</option>
+          <option value="files">Files-focused</option>
+        </select>
+      </div>
+      <div class="contracts-toolbar-group">
+        <label class="contracts-toolbar-label" for="contract-my-owner">My owner</label>
+        <input id="contract-my-owner" class="contracts-toolbar-input" type="text" placeholder="Optional owner name">
+      </div>
       <div class="contracts-toolbar-actions">
         <button class="btn btn-secondary" id="contracts-clear-filters" type="button">Clear filters</button>
+        <button class="btn btn-secondary" id="contracts-save-view" type="button">Save view</button>
+        <button class="btn btn-secondary" id="contracts-export-csv" type="button">CSV</button>
+        <button class="btn btn-secondary" id="contracts-print-renewals" type="button">Renewals report</button>
         <button class="btn btn-secondary" id="contract-board-settings-btn" type="button">Board settings</button>
         <button class="btn btn-primary" id="contract-new-btn" type="button">+ New contract</button>
       </div>

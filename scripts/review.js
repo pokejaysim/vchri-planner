@@ -29,6 +29,45 @@
           .length;
       }, 0);
       const completionRate = scheduledTasks.length ? Math.round((completedTasks.length / scheduledTasks.length) * 100) : 0;
+      const contractsState = typeof getContractsState === 'function' ? getContractsState() : { contracts: [] };
+      const contractEvents = (contractsState.contracts || [])
+        .flatMap(contract => {
+          const activity = Array.isArray(contract.activity) ? contract.activity : [];
+          const moved = activity
+            .filter(entry => reviewDateInRange(entry.at, weekStart, weekEnd))
+            .map(entry => ({
+              id: contract.id,
+              title: contract.title,
+              counterparty: contract.counterparty,
+              type: entry.label,
+              at: entry.at,
+              detail: contract.owner || contract.counterparty || ''
+            }));
+          const renewal = contract.renewalDate && contract.renewalDate >= weekStart && contract.renewalDate <= addDays(weekEnd, 30)
+            ? [{
+                id: contract.id,
+                title: contract.title,
+                counterparty: contract.counterparty,
+                type: 'Renewal coming up',
+                at: contract.renewalDate,
+                detail: formatCompactDate(contract.renewalDate)
+              }]
+            : [];
+          const blockedText = [contract.statusNote, contract.nextAction, contract.notes].join(' ').toLowerCase();
+          const blocked = !contract.archived && blockedText.match(/\b(waiting|blocked|pending|signature|response)\b/)
+            ? [{
+                id: contract.id,
+                title: contract.title,
+                counterparty: contract.counterparty,
+                type: 'Waiting or blocked',
+                at: contract.updatedAt || contract.createdAt || weekStart,
+                detail: contract.nextAction || contract.statusNote || 'Needs follow-up'
+              }]
+            : [];
+          return moved.concat(renewal, blocked);
+        })
+        .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))
+        .slice(0, 10);
 
       return {
         weekStart,
@@ -39,7 +78,8 @@
         archivedThisWeek,
         notesUpdated,
         completedSubtasks,
-        completionRate
+        completionRate,
+        contractEvents
       };
     }
 
@@ -112,6 +152,32 @@
           : 'Review window ending ' + formatCompactDate(data.weekEnd);
     }
 
+    function renderContractReviewList(data) {
+      const container = document.getElementById('review-contract-list');
+      const empty = document.getElementById('review-contract-empty');
+      const count = document.getElementById('review-contract-count');
+      if (!container) return;
+      if (count) count.textContent = data.contractEvents.length;
+      if (!data.contractEvents.length) {
+        container.innerHTML = '';
+        if (empty) empty.style.display = '';
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+      container.innerHTML = data.contractEvents.map(event => {
+        return '<div class="review-item">' +
+          '<div class="review-item-main">' +
+            '<div class="review-item-title">' + escapeHtml(event.title || 'Untitled contract') + '</div>' +
+            '<div class="review-item-meta">' +
+              '<span>' + escapeHtml(event.type) + '</span>' +
+              '<span>' + escapeHtml(event.detail || event.counterparty || '') + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<button class="review-item-open" type="button" data-open-contract="' + event.id + '">Open</button>' +
+        '</div>';
+      }).join('');
+    }
+
     function render() {
       const data = getReviewData();
       renderWeekHeading(data);
@@ -136,6 +202,7 @@
         return '<span>' + escapeHtml(formatRelativeTime(task.notesUpdatedAt)) + '</span>' +
           (preview ? '<span>' + escapeHtml(preview) + '</span>' : '');
       });
+      renderContractReviewList(data);
     }
 
     function renderReminderAlerts() {
@@ -152,6 +219,7 @@
       registerPlannerServiceWorker();
       setupUndoBar();
       setupRealtimeSync();
+      setupContractsRealtimeSync();
       startReminderPolling();
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') checkDueReminders();
@@ -175,6 +243,11 @@
         const openBtn = event.target.closest('[data-open-task]');
         if (openBtn) {
           jumpToTask(openBtn.dataset.openTask);
+          return;
+        }
+        const openContractBtn = event.target.closest('[data-open-contract]');
+        if (openContractBtn) {
+          window.location.href = 'contracts.html#contract=' + encodeURIComponent(openContractBtn.dataset.openContract);
         }
       });
     });

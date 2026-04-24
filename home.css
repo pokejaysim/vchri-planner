@@ -317,6 +317,7 @@
 .tile-tasks     { grid-column: span 4; grid-row: span 2; }
 .tile-due       { grid-column: span 2; }
 .tile-reminders { grid-column: span 2; }
+.tile-contracts { grid-column: span 2; }
 .tile-stats     { grid-column: span 2; }
 
 .home-tile-head {
@@ -575,6 +576,55 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Contracts */
+.home-contract-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.home-contract-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s ease;
+}
+.home-contract-row:hover { background: var(--color-primary-light); }
+.home-contract-type {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.home-contract-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.home-contract-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+.home-contract-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
 /* Stats */
 .home-stats-grid {
   display: grid;
@@ -640,7 +690,7 @@
   .home-bento {
     grid-template-columns: repeat(2, 1fr);
   }
-  .tile-focus, .tile-tasks, .tile-due, .tile-reminders, .tile-stats {
+  .tile-focus, .tile-tasks, .tile-due, .tile-reminders, .tile-contracts, .tile-stats {
     grid-column: span 2;
     grid-row: auto;
   }

@@ -118,10 +118,24 @@
         <header class="home-tile-head">
           <span class="home-tile-kicker"><span id="home-rem-count">0</span> pending</span>
           <span class="home-tile-title">Reminders</span>
+          <a class="home-tile-link" href="planner.html?layout=today">Open Today workspace →</a>
         </header>
         <div class="home-rem-list" id="home-rem-list"></div>
         <div class="home-tile-empty" id="home-rem-empty" style="display:none">
           <div class="dim">No pending reminders.</div>
+        </div>
+      </article>
+
+      <!-- Contracts -->
+      <article class="home-tile tile-contracts">
+        <header class="home-tile-head">
+          <span class="home-tile-kicker"><span id="home-contract-count">0</span> alerts</span>
+          <span class="home-tile-title">Contracts</span>
+          <a class="home-tile-link" href="contracts.html">Open tracker →</a>
+        </header>
+        <div class="home-contract-list" id="home-contract-list"></div>
+        <div class="home-tile-empty" id="home-contract-empty" style="display:none">
+          <div class="dim">No contract alerts right now.</div>
         </div>
       </article>
 
@@ -157,6 +171,7 @@
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
 
   <!-- Shared core (Firebase init, State, helpers) + data (Firestore ops) -->
   <script defer src="scripts/core.js"></script>

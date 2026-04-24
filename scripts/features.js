@@ -1,3 +1,16 @@
+    function refreshReminderSupportUi() {
+      const supportCopy = document.getElementById('reminder-support-copy');
+      const statusChip = document.getElementById('reminder-device-status');
+      const delivery = getReminderDeliveryStatus();
+      if (supportCopy) {
+        supportCopy.textContent = delivery.detail;
+      }
+      if (statusChip) {
+        statusChip.textContent = delivery.label;
+        statusChip.className = 'reminder-status-chip ' + delivery.key;
+      }
+    }
+
     /* ───────────── Edit Modal ───────────── */
     function openEditModal(task, focusField = 'text') {
       rememberFocus();
@@ -17,6 +30,7 @@
       document.getElementById('reminder-controls').classList.toggle('visible', hasReminder);
       document.getElementById('edit-reminder-date').value = task.reminderDate || '';
       document.getElementById('edit-reminder-time').value = task.reminderTime || '';
+      refreshReminderSupportUi();
 
       document.getElementById('edit-modal').classList.add('visible');
       renderReminderPanel();
@@ -47,10 +61,11 @@
       if (reminderEnabled && reminderDate && reminderTime) {
         const permission = await requestNotificationPermissionIfNeeded();
         if (permission === 'denied') {
-          showToast('Notifications are blocked. Reminders will show inside the planner while this tab stays open.');
+          showToast('Notifications are blocked. Reminders stay in the Today workspace until permissions are re-enabled.');
         } else if (permission === 'unsupported') {
-          showToast('This browser does not support notifications. Reminders will show inside the planner while this tab stays open.');
+          showToast('This browser does not support notifications. Reminders stay in the Today workspace and fire only while the planner is open.');
         }
+        refreshReminderSupportUi();
       }
 
       const existing = State.tasks.find(t => t.id === editingId);
@@ -168,6 +183,10 @@
     }
 
     function setLayoutMode(mode) {
+      if (mode === 'today') {
+        State.selectedDate = getTodayString();
+        State.viewMode = 'today';
+      }
       State.layoutMode = mode;
       State.reminderPanelOpen = false;
       persistLayoutMode(mode);

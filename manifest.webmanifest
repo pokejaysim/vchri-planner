@@ -8,6 +8,10 @@
   "description": "A daily planner for VCHRI tasks, contracts, notes, reminders, and weekly reviews.",
   "shortcuts": [
     {
+      "name": "Today Workspace",
+      "url": "planner.html?layout=today"
+    },
+    {
       "name": "Planner",
       "url": "planner.html"
     },

@@ -1,4 +1,4 @@
-const PLANNER_CACHE = 'vchri-planner-shell-v4';
+const PLANNER_CACHE = 'vchri-planner-shell-v5';
 const PLANNER_ASSETS = [
   './',
   'index.html',
@@ -75,7 +75,10 @@ self.addEventListener('fetch', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const data = event.notification.data || {};
-  const targetUrl = new URL(data.url || 'planner.html', self.location.origin).href;
+  const fallbackUrl = data.taskId
+    ? 'planner.html#task=' + encodeURIComponent(data.taskId)
+    : 'planner.html';
+  const targetUrl = new URL(data.url || fallbackUrl, self.location.origin).href;
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
@@ -88,6 +91,36 @@ self.addEventListener('notificationclick', event => {
         }
       }
       return self.clients.openWindow(targetUrl);
+    })
+  );
+});
+
+self.addEventListener('push', event => {
+  if (!event.data) return;
+  let payload = {};
+  try {
+    payload = event.data.json();
+  } catch (error) {
+    payload = { title: 'Planner reminder', body: event.data.text() };
+  }
+
+  const notification = payload.notification || {};
+  const data = payload.data || {};
+  const taskId = data.taskId || payload.taskId || '';
+  const url = data.url || payload.url || (taskId ? 'planner.html#task=' + encodeURIComponent(taskId) : 'planner.html');
+
+  event.waitUntil(
+    self.registration.showNotification(notification.title || payload.title || 'Planner reminder', {
+      body: notification.body || payload.body || '',
+      data: {
+        ...data,
+        taskId,
+        url
+      },
+      tag: notification.tag || payload.tag || (taskId ? 'planner-reminder-' + taskId : 'planner-reminder'),
+      requireInteraction: true,
+      icon: 'assets/planner-icon.svg',
+      badge: 'assets/planner-badge.svg'
     })
   );
 });
